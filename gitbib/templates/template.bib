@@ -1,0 +1,23 @@
+{# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/. #}
+
+{% for ident in idents -%}
+{% set entry = entries[ident] -%}
+
+@{{ entry['type'] | to_bibtype }}{{ '{'+ident }},
+  author = "{{entry['author'] | bibtex_author_list}}",
+  title  = "{{entry['title']}}",
+  {% if entry['published-online'] -%}
+  year   = "{{entry['published-online'] | attr('year') }}",
+  {% elif entry['published-print'] -%}
+  year   = "{{entry['published-print'] | attr('year') }}",
+  {% endif -%}
+  {% if entry['container-title'] -%}
+  journal = "{{entry['container-title'] | latex_escape }}",{% endif %}
+  volume  = "{{entry['volume']}}",
+  number  = "{{entry['issue']}}",
+  pages   = "{{ entry['page'] | replace('-', '--') }}",
+}
+
+{% endfor %}

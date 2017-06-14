@@ -1,0 +1,37 @@
+## Specify which version of gitbib you're using
+version: 1
+
+## Specify files to load for gitbib entries. Can be a
+## glob expression, list, or list of glob expressions
+source_files: "*.yaml"
+
+## Below are alternative ways of specifying source files
+#source_files:
+#  - sodium-channels.yaml
+#  - markov-state-models.yaml
+#
+#source_files:
+#  - "*.yaml"
+
+
+## `outputs` lets you control what files are rendered
+## with what entries. All output specs must have an
+## `fn` key to specify the output filename (without
+## extension)
+outputs:
+## If the output spec includes the key `all`, all entries
+## will be rendered
+  - fn: all
+    all: True
+
+## If the output spec includes the key `categories`, only
+## entries that contain the listed categories will be rendered
+#  - fn: msm
+#    categories: ["msm", "markov"]
+
+## If the output spec includes the key `tree`, the
+## specified entry and all its referenced entries will
+## be rendered.
+#  - fn: msmbuilder
+#    tree: "2016-msmbuilder-3
+
