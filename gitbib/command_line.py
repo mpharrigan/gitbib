@@ -58,7 +58,7 @@ def main():
 
     user_info = {
         'slugname': 'gitbib',
-        'index_url': '/{}/'.format(args.out_dir)
+        'index_url': 'index.html',
     }
     for fn, mime, render in g.renderers({'html', 'bib'}, user_logger=l):
         with open('{}/{}'.format(args.out_dir, fn), 'wb') as f:
