@@ -5,6 +5,9 @@ Gitbib
  - Auto-fetch relevant bibliographic data
  - Render as pretty html or `.bib`
  
+[Example](https://htmlpreview.github.io/?https://raw.githubusercontent.com/mpharrigan/gitbib/master/example/gitbib/all.html)
+output.
+ 
 Version control
 ---------------
   
