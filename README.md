@@ -7,6 +7,8 @@ Gitbib
  
 [Example](https://htmlpreview.github.io/?https://raw.githubusercontent.com/mpharrigan/gitbib/master/example/gitbib/all.html)
 output.
+
+![Example](https://github.com/mpharrigan/gitbib/raw/master/example/screenshot.png)
  
 Version control
 ---------------
