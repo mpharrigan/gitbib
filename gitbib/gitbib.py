@@ -310,6 +310,10 @@ def safe_css(id):
         else:
             return id
 
+def list_of_pdbs(pdbs):
+    pdbs = ['<a href="http://www.rcsb.org/pdb/explore/explore.do?structureId={pdb}">{pdb}</a>'
+                .format(pdb=pdb) for pdb in pdbs]
+    return ', '.join(pdbs)
 
 def markdownify(text, entries):
     def _replace1(ma):
@@ -572,6 +576,7 @@ class Renderfunc:
         env.filters['to_prettydate'] = to_prettydate
         env.filters['respace'] = respace
         env.filters['safe_css'] = safe_css
+        env.filters['list_of_pdbs'] = list_of_pdbs
         env.filters['markdownify'] = lambda s: markdownify(s, entries)
 
         sorted_idents = sorted(entries.keys(), reverse=True, key=lambda k: sort_entry_key(entries, k))

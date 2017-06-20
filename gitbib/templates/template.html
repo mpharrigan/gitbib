@@ -70,6 +70,11 @@
                 {{entry['description'] | markdownify}}
                 {% endif %}
 
+                {% if entry['pdb'] %}
+                <h6 class="m-b-0"><strong style="color: #444">PDB codes</strong></h6>
+                <p class="card-text">{{ entry['pdb'] | list_of_pdbs }}</p>
+                {% endif %}
+
                 {% if entry['cites'] %}
                     <a data-toggle="collapse" href="#{{ident | safe_css}}-cites"
                        aria-expanded="false" aria-controls="{{ident | safe_css}}-cites">
