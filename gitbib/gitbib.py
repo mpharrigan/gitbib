@@ -311,9 +311,31 @@ def safe_css(id):
             return id
 
 def list_of_pdbs(pdbs):
-    pdbs = ['<a href="http://www.rcsb.org/pdb/explore/explore.do?structureId={pdb}">{pdb}</a>'
-                .format(pdb=pdb) for pdb in pdbs]
-    return ', '.join(pdbs)
+    rcsb_fmt = "http://www.rcsb.org/pdb/explore/explore.do?structureId={code}"
+    lines = []
+    for pdb in pdbs:
+        if isinstance(pdb, dict):
+            if 'code' in pdb:
+                pdb_d = pdb
+                if 'href' not in pdb_d:
+                    pdb_d['href'] = rcsb_fmt.format(code=pdb_d['code'])
+                if 'description' in pdb_d:
+                    pdb_d['desc'] = pdb_d['description']
+            else:
+                pdb_d = {'code': '{}'.format(pdb)}
+        else:
+            pdb_d = {'code': '{}'.format(pdb), 'href': rcsb_fmt.format(code=pdb)}
+
+        if 'href' in pdb_d:
+            line = '<a href="{href}">{code}</a>'.format(**pdb_d)
+        else:
+            line = '{code}'.format(**pdb_d)
+
+        if 'desc' in pdb_d:
+            line = "{line} ({desc})".format(line=line, desc=pdb_d['desc'])
+
+        lines += [line]
+    return ', '.join(lines)
 
 def markdownify(text, entries):
     def _replace1(ma):
