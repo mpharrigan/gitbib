@@ -2,3 +2,4 @@ requests
 pyyaml
 jinja2
 sqlalchemy
+pyparsing
