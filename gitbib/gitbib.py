@@ -273,16 +273,18 @@ def internal_representation(all_my_meta, *, session, ulog):
 # can be expressed eloquently in the jinja2 templates. We set up some
 # jinja2 "filters" here to use to clean up the templates.
 
+def name_from_dict(author):
+    if isinstance(author, dict):
+        return "{given} {family}".format(**author)
+    else:
+        return author
 
 def pretty_author_list(authors):
-    return "; ".join("{given} {family}".format(**author) for author in authors)
+    return "; ".join(name_from_dict(author) for author in authors)
 
 
 def bibtex_author_list(authors):
-    return " and ".join("{given} {family}"
-                        .format(given=latex_escape(a['given']),
-                                family=latex_escape(a['family']))
-                        for a in authors)
+    return " and ".join(latex_escape(name_from_dict(author)) for author in authors)
 
 
 def to_isodate(date):
@@ -375,7 +377,9 @@ def to_bibtype(s):
     if s in type_mapping:
         return type_mapping[s]
     log.warn("Unmapped type {}".format(s))
-    return 'article'
+    if s is None or str(s).strip() == "":
+        return 'article'
+    return str(s)
 
 
 def latex_escape(s):
