@@ -432,7 +432,7 @@ def latex_escape(s):
 # Rendering is straightforward application of jinja2. Note that we have
 # to pass a sorted list of ident's (keys to the entries dictionary)
 
-def sort_entry_key(entries, k):
+def sort_entry_date(entries, k):
     entry = entries[k]
     if 'published-online' in entry:
         return entry['published-online']
@@ -440,6 +440,17 @@ def sort_entry_key(entries, k):
         return entry['published-print']
     log.warn("Missing date for {}".format(k))
     return datetime.date(1970, 1, 1)
+
+def sort_entry_title(entries, k):
+    entry = entries[k]
+    if 'title' in entry:
+        return entry['title']
+    log.warn("Missing title for {} (for sorting)".format(k))
+    return "zzzz"
+
+
+def sort_entry_key(entries, k):
+    return sort_entry_date(entries, k), sort_entry_title(entries,k)
 
 
 def is_stubbable(ident):
