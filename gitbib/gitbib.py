@@ -199,24 +199,22 @@ def _doi_to_pydate(date_spec):
 
     return datetime.date(year, month, day)
 
-@functools.lru_cache(maxsize=1024)
-def _abbrev(title):
-    ltitle = title.lower()
-    matches = difflib.get_close_matches(ltitle, ABBREVS, n=1)
-    if len(matches) > 0:
-        return {
-            'full': title,
-            'short': ABBREVS[matches[0]]
-        }
-    return None
-
-
 def _container_title_logic(ctitles):
     ctitles = sorted(ctitles, key=lambda x: len(x), reverse=True)
     for title in ctitles:
-        res = _abbrev(title)
-        if res is not None:
-            return res
+        ltitle = title.lower()
+
+        attempts = [
+            ltitle,
+            ltitle.replace('the', '').strip(),
+        ]
+
+        for attempt in attempts:
+            if attempt in ABBREVS:
+                return {
+                    'full': title,
+                    'short': ABBREVS[attempt],
+                }
     log.warning("Couldn't find {} in our abbrevs".format(ctitles))
     return {
         'full': ctitles[0],
