@@ -14,7 +14,7 @@
   year   = "{{entry['published-print'] | attr('year') }}",
   {% endif -%}
   {% if entry['container-title'] -%}
-  journal = "{{entry['container-title'] | latex_escape }}",{% endif %}
+  journal = "{{entry['container-title']['short'] | latex_escape }}",{% endif %}
   volume  = "{{entry['volume']}}",
   number  = "{{entry['issue']}}",
   pages   = "{{ entry['page'] | replace('-', '--') }}",

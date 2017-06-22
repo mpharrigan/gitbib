@@ -14,7 +14,11 @@ from xml.etree import ElementTree
 
 import requests
 import yaml
+import json
 from jinja2 import Environment, PackageLoader
+from pkg_resources import resource_filename
+import difflib
+import functools
 
 from .cache import Crossref, Arxiv
 
@@ -28,6 +32,9 @@ IN_TEXT_CITATION_RE = r'\[((doi\:[\w\.]+\/[\w\.]+)|(arxiv\:\d+\.\d+)|([\w\-]+))(
 
 # [=111] NOT [=111](...
 SHORT_IN_TEXT_CITATION_RE = r'\[\=(\d+)\](?!\()'
+
+with open(resource_filename('gitbib', 'abbreviations.json')) as f:
+    ABBREVS = {long.lower(): short for short, long in json.load(f)}
 
 
 # The cached data should be as faithful to the original data as possible.
@@ -192,6 +199,29 @@ def _doi_to_pydate(date_spec):
 
     return datetime.date(year, month, day)
 
+@functools.lru_cache(maxsize=1024)
+def _abbrev(title):
+    ltitle = title.lower()
+    matches = difflib.get_close_matches(ltitle, ABBREVS, n=1)
+    if len(matches) > 0:
+        return {
+            'full': title,
+            'short': ABBREVS[matches[0]]
+        }
+    return None
+
+
+def _container_title_logic(ctitles):
+    ctitles = sorted(ctitles, key=lambda x: len(x), reverse=True)
+    for title in ctitles:
+        res = _abbrev(title)
+        if res is not None:
+            return res
+    log.warning("Couldn't find {} in our abbrevs".format(ctitles))
+    return {
+        'full': ctitles[0],
+        'short': ctitles[-1],
+    }
 
 def _internal_rep_doi(my_meta, their_meta):
     want = {k: lambda x: x
@@ -208,13 +238,12 @@ def _internal_rep_doi(my_meta, their_meta):
                 'published-print',
                 'published-online',
                 'container-title',
-                'short-container-title',
                 'type']
             }
     want['published-print'] = _doi_to_pydate
     want['published-online'] = _doi_to_pydate
     want['title'] = lambda ts: ts[0]
-    want['container-title'] = lambda cts: cts[0] if len(cts) == 1 else "{} ({})".format(cts[0], '; '.join(cts[1:]))
+    want['container-title'] = _container_title_logic
 
     their_meta_keys = set(their_meta)
     want_keys = their_meta_keys & set(want.keys())

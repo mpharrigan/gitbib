@@ -58,7 +58,7 @@
                   {% endif %}
                 </p>
                 <p class="card-text">
-                  {% if entry['container-title'] %}<em>{{entry['container-title']}}</em>.{% endif %}
+                  {% if entry['container-title'] %}<em>{{entry['container-title']['full']}} ({{entry['container-title']['short']}})</em>.{% endif %}
                   {% if entry['volume'] %}{{entry['volume']}}, {% endif %}
                   {% if entry['issue'] %}{{entry['issue']}}, {% endif %}
                   {% if entry['page'] %}{{entry['page']}}. {% endif %}
