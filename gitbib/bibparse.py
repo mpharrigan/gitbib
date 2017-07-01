@@ -6,12 +6,14 @@ Matthew Harrigan
 
 from pyparsing import CaselessKeyword as kwd
 from pyparsing import QuotedString, Word, alphanums, Suppress, OneOrMore, nums, \
-    Group, Optional, ZeroOrMore, alphas, alphas8bit, delimitedList, nestedExpr, printables, ParseResults
+    Group, Optional, ZeroOrMore, alphas, alphas8bit, delimitedList, nestedExpr, printables, ParseResults, Dict
 import string
+from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
+import sys
+import yaml
 
-# Change these if you need more flexibility:
 entry_type = kwd("article") | kwd("unpublished") | kwd("incollection")
-cite_key = Word(alphanums + ":/._")
+cite_key = Word(alphanums + ":/._-")
 
 LCURLY = Suppress('{')
 RCURLY = Suppress('}')
@@ -19,8 +21,6 @@ COMMA = Suppress(',')
 AT = Suppress('@')
 EQUALS = Suppress('=')
 
-#field_val = Word(nums) | QuotedString('{', endQuoteChar='}', multiline=True,
-#                                      convertWhitespaceEscapes=False)
 
 def un_nest(t):
     if isinstance(t, str):
@@ -28,16 +28,10 @@ def un_nest(t):
     else:
         return ''.join(un_nest(t2) for t2 in t)
 
-def nesty(toks):
-    tl = toks[0].asList()
-    if len(tl) > 1:
-        catted = ''.join(un_nest(t) for t in tl)
-        return ParseResults([ParseResults([catted])])
-    return toks
-
 
 field_content = Word(string.printable, excludeChars='{}')
-field_val = Word(nums) | nestedExpr('{', '}', content=field_content, ignoreExpr=None).setParseAction(nesty)
+field_val = Word(nums) | nestedExpr('{', '}', content=field_content, ignoreExpr=None)
+field_val.setParseAction(un_nest)
 title_field = Group(kwd('title') + EQUALS + field_val)
 journal_field = Group(kwd('journal') + EQUALS + field_val)
 year_field = Group(kwd('year') + EQUALS + field_val)
@@ -56,22 +50,46 @@ entry_item = (title_field | author_field | journal_field | year_field
               | volume_field | pages_field | abstract_field | doi_field
               | Suppress(other_field))
 
-class BibEntry(object):
-    def __init__(self, type, cite_key, fields):
-        self.type = type
-        self.cite_key = cite_key
-        self.fields = fields
-        self.__dict__.update(**fields)
+entry_item_list = Group(ZeroOrMore(entry_item + Suppress(',')) + Optional(entry_item))
+entry = Group(Suppress('@') + entry_type + Suppress('{') + cite_key + Suppress(',') + entry_item_list + Suppress('}'))
+Entries = OneOrMore(entry)
+
+def _to_python(x):
+    if isinstance(x, ParseResults):
+        return x.asList()
+    try:
+        return int(x)
+    except ValueError:
+        return x
+
+def entries_to_python(entries):
+    for type, key, fields in entries:
+        fields = {k: _to_python(v) for k, v in fields}
+        yield type, key, fields
 
 
-def to_BibEntry(toks):
-    fields = dict(toks[2:])
-    fields = {k: v.asList() for k, v in fields.items()}
-    fields = {k: v[0] if len(v) == 1 else v for k, v in fields.items()}
-    return BibEntry(str(toks[0]), str(toks[1]), fields)
+Entries.setParseAction(entries_to_python)
+
+def _doi_only(fields):
+    if 'doi' in fields:
+        return {'doi': fields['doi']}
+    else:
+        return fields
+
+def main():
+    parser = ArgumentParser(formatter_class=ArgumentDefaultsHelpFormatter)
+    parser.add_argument(dest='bib_fn', help='.bib File')
+    parser.add_argument('--doi-only', action='store_true', default=False, help='Only keep DOI')
+    args = parser.parse_args()
+
+    entries = Entries.parseFile(args.bib_fn, parseAll=True)
+    entries = {key: fields for _, key, fields in entries}
+
+    if args.doi_only:
+        entries = {key: _doi_only(fields) for key, fields in entries.items()}
+
+    yaml.dump(entries, sys.stdout, default_flow_style=False)
 
 
-entry = (AT + entry_type + LCURLY + cite_key + COMMA
-         + ZeroOrMore(entry_item + COMMA) + Optional(entry_item) + RCURLY)
-entry.setParseAction(to_BibEntry)
-entries = OneOrMore(entry)
+if __name__ == '__main__':
+    main()
