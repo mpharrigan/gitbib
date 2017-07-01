@@ -6,12 +6,12 @@
 {% set entry = entries[ident] -%}
 
 @{{ entry['type'] | to_bibtype }}{{ '{'+ident }},
-  author = "{{entry['author'] | bibtex_author_list}}",
-  title  = "{{entry['title']}}",
+  author  = "{{entry['author'] | bibtex_author_list}}",
+  title   = "{{entry['title']}}",
   {% if entry['published-online'] -%}
-  year   = "{{entry['published-online'] | attr('year') }}",
+  year    = "{{entry['published-online'] | attr('year') }}",
   {% elif entry['published-print'] -%}
-  year   = "{{entry['published-print'] | attr('year') }}",
+  year    = "{{entry['published-print'] | attr('year') }}",
   {% endif -%}
   {% if entry['container-title'] -%}
   journal = "{{entry['container-title']['short'] | latex_escape }}",{% endif %}
