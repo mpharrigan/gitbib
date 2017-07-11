@@ -199,6 +199,7 @@ def _doi_to_pydate(date_spec):
 
     return datetime.date(year, month, day)
 
+
 def _container_title_logic(ctitles, *, ulog):
     ctitles = sorted(ctitles, key=lambda x: len(x), reverse=True)
     for title in ctitles:
@@ -220,6 +221,7 @@ def _container_title_logic(ctitles, *, ulog):
         'full': ctitles[0],
         'short': ctitles[-1],
     }
+
 
 def _internal_rep_doi(my_meta, their_meta, *, ulog):
     want = {k: lambda x: x
@@ -271,6 +273,7 @@ def _internal_rep_arxiv(my_meta, their_meta, *, ulog):
             **{k: v for k, v in new_their_meta.items()}
             }
 
+
 def _internal_rep_none(my_meta, their_meta, *, ulog):
     return my_meta
 
@@ -309,6 +312,7 @@ def name_from_dict(author):
     else:
         return author
 
+
 def pretty_author_list(authors):
     return "; ".join(name_from_dict(author) for author in authors)
 
@@ -342,6 +346,7 @@ def safe_css(id):
         else:
             return id
 
+
 def list_of_pdbs(pdbs):
     rcsb_fmt = "http://www.rcsb.org/pdb/explore/explore.do?structureId={code}"
     lines = []
@@ -368,6 +373,7 @@ def list_of_pdbs(pdbs):
 
         lines += [line]
     return ', '.join(lines)
+
 
 def markdownify(text, entries):
     def _replace1(ma):
@@ -471,6 +477,7 @@ def sort_entry_date(entries, k):
     log.warn("Missing date for {}".format(k))
     return datetime.date(1970, 1, 1)
 
+
 def sort_entry_title(entries, k):
     entry = entries[k]
     if 'title' in entry:
@@ -480,7 +487,7 @@ def sort_entry_title(entries, k):
 
 
 def sort_entry_key(entries, k):
-    return sort_entry_date(entries, k), sort_entry_title(entries,k)
+    return sort_entry_date(entries, k), sort_entry_title(entries, k)
 
 
 def is_stubbable(ident):
@@ -592,20 +599,21 @@ def render_all(entries, should_be_true, *, ulog):
     if not should_be_true:
         ulog.error("When using `all` output, set it to `True`")
         return {}
-    return entries
+    return sorted(entries.keys())
 
 
 def render_categories(entries, want_tags, *, ulog):
-    matching_entries = dict()
+    matching_idents = []
     for ident, entry in entries.items():
         its_tags = entry.get('tags', [])
         for it in its_tags:
             if it in want_tags:
-                matching_entries[ident] = entry
-    return matching_entries
+                matching_idents += [ident]
+    return matching_idents
 
 
 def _render_tree(node_ident, entries, matching_entries, ulog):
+    # Deprecated
     node = entries[node_ident]
     matching_entries[node_ident] = node
     if 'cites' in node:
@@ -620,20 +628,44 @@ def _render_tree(node_ident, entries, matching_entries, ulog):
 
 
 def render_tree(entries, root, *, ulog):
+    # Deprecated
     matching_entries = dict()
     matching_entries = _render_tree(root, entries, matching_entries, ulog)
     return matching_entries
 
+
+def _descendants(ident, entries, out_idents, *, ulog):
+    node = entries[ident]
+    if 'cites' in node:
+        for cite in node['cites']:
+            if 'resolved' in cite and cite['resolved']:
+                out_idents.add(cite['id'])
+                _descendants(cite['id'], entries, out_idents, ulog=ulog)
+            else:
+                if 'id' in cite:
+                    ulog.warn("{}'s unresolved citation {} won't be included as a descendant."
+                              .format(ident, cite['id']))
+
+    return out_idents
+
+
+def descendants(idents, entries, *, ulog):
+    out_idents = set()
+    for ident in idents:
+        out_idents.update(_descendants(ident, entries, out_idents, ulog=ulog))
+    return sorted(out_idents)
+
+
 def render_by_input_filename(entries, input_fn, *, ulog):
-    out = dict()
+    idents = []
     for k, v in entries.items():
         if v.get('input_fn', None) == input_fn:
-            out[k] = v
-    return out
+            idents += [k]
+    return idents
 
 
 class Renderfunc:
-    def __init__(self, fext, entries):
+    def __init__(self, fext, list_of_idents, entries):
         env = Environment(loader=PackageLoader('gitbib'))
         env.filters['latex_escape'] = latex_escape
         env.filters['to_bibtype'] = to_bibtype
@@ -646,20 +678,26 @@ class Renderfunc:
         env.filters['list_of_pdbs'] = list_of_pdbs
         env.filters['markdownify'] = lambda s: markdownify(s, entries)
 
-        sorted_idents = sorted(entries.keys(), reverse=True, key=lambda k: sort_entry_key(entries, k))
-        sorted_tags = sorted(set(itertools.chain.from_iterable(entry.get('tags', []) for entry in entries.values())))
+        sorted_tags = sorted(set(
+            itertools.chain.from_iterable(entries[k].get('tags', [])
+                                          for k in itertools.chain.from_iterable(list_of_idents))))
+
+        list_of_sorted_ids = []
+        for idents in list_of_idents:
+            sorted_idents = sorted(idents, reverse=True, key=lambda k: sort_entry_key(entries, k))
+            list_of_sorted_ids += [sorted_idents]
 
         self.fext = fext
         self.env = env
         self.entries = entries
-        self.idents = sorted_idents
+        self.list_of_sorted_ids = list_of_sorted_ids
         self.all_tags = sorted_tags
 
     def __call__(self, out_f, user_info):
         template = self.env.get_template('template.{}'.format(self.fext))
         out_f.write(template.render(
             entries=self.entries,
-            idents=self.idents,
+            list_of_idents=self.list_of_sorted_ids,
             all_tags=self.all_tags,
             user_info=user_info,
         ).encode())
@@ -715,7 +753,6 @@ class Gitbib:
     out_render_types = {
         'all': render_all,
         'categories': render_categories,
-        'tree': render_tree,
         'input-fn': render_by_input_filename,
     }
 
@@ -754,10 +791,20 @@ class Gitbib:
                 ulog.error("No output specification given for {}".format(fn))
                 continue
 
-            entries = self.out_render_types[out_type](self.entries, out_spec[out_type], ulog=ulog)
-            if len(entries) > 0:
+            idents = self.out_render_types[out_type](self.entries, out_spec[out_type], ulog=ulog)
+            list_of_idents = [idents]
+            if out_type in ['all']:
+                if 'include_descendants' in out_spec:
+                    ulog.warn("`include_descendants` option is ignored for output type `{}`".format(out_type))
+            else:
+                include_descendants = out_spec.get('include_descendants', False)
+                if include_descendants:
+                    list_of_idents += [descendants(idents, self.entries, ulog=ulog)]
+
+            if len(idents) > 0:
                 for ofmt in out_formats:
-                    yield "{}.{}".format(fn, ofmt), self.out_render_formats[ofmt], Renderfunc(ofmt, entries)
+                    yield "{}.{}".format(fn, ofmt), self.out_render_formats[ofmt], Renderfunc(ofmt, list_of_idents,
+                                                                                              self.entries)
             else:
                 ulog.warn("No entries matched the specification for {}".format(fn))
 

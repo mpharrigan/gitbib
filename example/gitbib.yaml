@@ -30,9 +30,3 @@ outputs:
   - fn: analysis
     categories: [analysis]
 
-## If the output spec includes the key `tree`, the
-## specified entry and all its referenced entries will
-## be rendered.
-  - fn: mdtraj
-    tree: 2015-mdtraj
-

@@ -39,6 +39,7 @@
             <span class="tag tag-default">{{tag}}</span>
             {% endfor %}
             </h5>
+            {% for idents in list_of_idents %}
             {% for ident in idents %}
             {% set entry = entries[ident] %}
             <div class="card">
@@ -116,12 +117,14 @@
               </div>
             </div>
             {% endfor %}
+            <hr style="margin: 2rem">
+            {% endfor %}
         </div>
         <div class="col-xs-12 col-lg-3">
           <h4>Items</h4>
           <div id="navlist">
             <ul class="nav">
-              {% for ident in idents %}
+              {% for ident in list_of_idents[0] %}
               {% set entry = entries[ident] %}
               <li class="nav-item">
                 <a class="nav-link" href="#{{ident | safe_css}}">{{ident}}</a>

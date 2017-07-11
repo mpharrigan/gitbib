@@ -26,6 +26,7 @@
 
 \maketitle
 
+{% for idents in list_of_idents}
 {% for ident in idents -%}
 {% set entry = entries[ident] -%}
 
@@ -35,6 +36,7 @@
 {{entry['description'] | respace }}
 {% endif %}
 
+{% endfor %}
 {% endfor %}
 
 \bibliography{gitbib.bib}
