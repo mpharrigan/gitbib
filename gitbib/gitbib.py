@@ -199,7 +199,7 @@ def _doi_to_pydate(date_spec):
 
     return datetime.date(year, month, day)
 
-def _container_title_logic(ctitles):
+def _container_title_logic(ctitles, *, ulog):
     ctitles = sorted(ctitles, key=lambda x: len(x), reverse=True)
     for title in ctitles:
         ltitle = title.lower()
@@ -215,13 +215,13 @@ def _container_title_logic(ctitles):
                     'full': title,
                     'short': ABBREVS[attempt],
                 }
-    log.warning("Couldn't find {} in our abbrevs".format(ctitles))
+    ulog.warn("Couldn't find a journal abbreviation for {}".format(ctitles))
     return {
         'full': ctitles[0],
         'short': ctitles[-1],
     }
 
-def _internal_rep_doi(my_meta, their_meta):
+def _internal_rep_doi(my_meta, their_meta, *, ulog):
     want = {k: lambda x: x
             for k in [
                 'author',
@@ -241,7 +241,7 @@ def _internal_rep_doi(my_meta, their_meta):
     want['published-print'] = _doi_to_pydate
     want['published-online'] = _doi_to_pydate
     want['title'] = lambda ts: ts[0]
-    want['container-title'] = _container_title_logic
+    want['container-title'] = lambda x: _container_title_logic(x, ulog=ulog)
 
     their_meta_keys = set(their_meta)
     want_keys = their_meta_keys & set(want.keys())
@@ -251,7 +251,7 @@ def _internal_rep_doi(my_meta, their_meta):
             }
 
 
-def _internal_rep_arxiv(my_meta, their_meta):
+def _internal_rep_arxiv(my_meta, their_meta, *, ulog):
     new_their_meta = {k: v for k, v in their_meta.items() if k in ['title']}
     new_their_meta['published-online'] = (datetime.datetime.strptime(their_meta['published'], '%Y-%m-%dT%H:%M:%SZ')
                                           .date())
@@ -271,12 +271,15 @@ def _internal_rep_arxiv(my_meta, their_meta):
             **{k: v for k, v in new_their_meta.items()}
             }
 
+def _internal_rep_none(my_meta, their_meta, *, ulog):
+    return my_meta
+
 
 def _internal_representation(ident, my_meta, *, session, ulog):
     funcs = {
         'doi': _internal_rep_doi,
         'arxiv': _internal_rep_arxiv,
-        'none': lambda x, y: x
+        'none': _internal_rep_none,
     }
     their_meta = cache(ident, my_meta, session=session, ulog=ulog)
     # TODO: better merging.
@@ -288,7 +291,7 @@ def _internal_representation(ident, my_meta, *, session, ulog):
         k = 'arxiv'
     else:
         k = 'none'
-    return funcs[k](my_meta, their_meta[k])
+    return funcs[k](my_meta, their_meta[k], ulog=ulog)
 
 
 def internal_representation(all_my_meta, *, session, ulog):
