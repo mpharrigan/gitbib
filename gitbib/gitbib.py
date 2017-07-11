@@ -332,7 +332,7 @@ def to_prettydate(date):
 def respace(text):
     splits = re.split(r'\n\n+', text)
     return "\n\n".join(
-        textwrap.fill(s, width=75, break_long_words=False) for s in splits)
+        textwrap.fill(s, width=75, break_long_words=False, break_on_hyphens=False) for s in splits)
 
 
 def safe_css(id):
@@ -665,7 +665,7 @@ def render_by_input_filename(entries, input_fn, *, ulog):
 
 
 class Renderfunc:
-    def __init__(self, fext, list_of_idents, entries):
+    def __init__(self, fn, fext, list_of_idents, entries):
         env = Environment(loader=PackageLoader('gitbib'))
         env.filters['latex_escape'] = latex_escape
         env.filters['to_bibtype'] = to_bibtype
@@ -687,6 +687,7 @@ class Renderfunc:
             sorted_idents = sorted(idents, reverse=True, key=lambda k: sort_entry_key(entries, k))
             list_of_sorted_ids += [sorted_idents]
 
+        self.fn = fn
         self.fext = fext
         self.env = env
         self.entries = entries
@@ -696,6 +697,7 @@ class Renderfunc:
     def __call__(self, out_f, user_info):
         template = self.env.get_template('template.{}'.format(self.fext))
         out_f.write(template.render(
+            fn=self.fn,
             entries=self.entries,
             list_of_idents=self.list_of_sorted_ids,
             all_tags=self.all_tags,
@@ -759,6 +761,8 @@ class Gitbib:
     out_render_formats = {
         'html': 'text/html',
         'bib': 'application/x-bibtex',
+        'tex': 'application/x-latex',
+        'md': 'text/markdown',
     }
 
     def renderers(self, out_formats, user_logger):
@@ -803,7 +807,7 @@ class Gitbib:
 
             if len(idents) > 0:
                 for ofmt in out_formats:
-                    yield "{}.{}".format(fn, ofmt), self.out_render_formats[ofmt], Renderfunc(ofmt, list_of_idents,
+                    yield "{}.{}".format(fn, ofmt), self.out_render_formats[ofmt], Renderfunc(fn, ofmt, list_of_idents,
                                                                                               self.entries)
             else:
                 ulog.warn("No entries matched the specification for {}".format(fn))

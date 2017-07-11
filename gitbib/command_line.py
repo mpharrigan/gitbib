@@ -60,6 +60,6 @@ def main():
         'slugname': 'gitbib',
         'index_url': 'index.html',
     }
-    for fn, mime, render in g.renderers({'html', 'bib'}, user_logger=l):
+    for fn, mime, render in g.renderers({'html', 'bib', 'tex', 'md'}, user_logger=l):
         with open('{}/{}'.format(args.out_dir, fn), 'wb') as f:
             render(f, user_info)

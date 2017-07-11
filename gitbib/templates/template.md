@@ -21,7 +21,7 @@ Bibliographic Entries
 {% if entry['published-print'] -%}
  - {{entry['published-print'] | to_isodate }} (print)
 {% endif %}
-{% if entry['container-title'] %}*{{entry['container-title']}}*. {%endif%}{% if entry['volume'] %}{{entry['volume']}}, {%endif%}{%if entry['issue']%}{{entry['issue']}}, {%endif%}{%if entry['page']%}{{entry['page']}}.{%endif%}
+{% if entry['container-title'] %}*{{entry['container-title']['full']}} ({{entry['container-title']['short']}})*. {%endif%}{% if entry['volume'] %}{{entry['volume']}}, {%endif%}{%if entry['issue']%}{{entry['issue']}}, {%endif%}{%if entry['page']%}{{entry['page']}}.{%endif%}
 
 {% if entry['description'] -%}
 **Description:**
