@@ -20,6 +20,8 @@
   number  = "{{entry['issue']}}",
   pages   = "{{ entry['page'] | replace('-', '--') }}",
   doi     = "{{ entry['doi'] }}",
+  {% if entry['arxiv'] -%}
+  note    = "arXiv:{{ entry['arxiv'] }}",{% endif %}
 }
 
 {% endfor %}

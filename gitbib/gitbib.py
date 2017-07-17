@@ -265,6 +265,7 @@ def _internal_rep_arxiv(my_meta, their_meta, *, ulog):
             authors += [{'family': splits[0]}]
 
     new_their_meta['author'] = authors
+    new_their_meta['type'] = 'unpublished'
     return {**my_meta,
             **{k: v for k, v in new_their_meta.items()}
             }
@@ -404,6 +405,7 @@ def markdownify(text, entries):
 def bibtype(key, entries, ulog):
     type_mapping = {
         'journal-article': 'article',
+        'unpublished': 'unpublished',
         # TODO: More type mappings. Is there any dx.doi.org documentation for these?
     }
     s = entries[key].get('type', '')
