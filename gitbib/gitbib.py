@@ -324,6 +324,21 @@ def pretty_author_list(authors):
 def bibtex_author_list(authors):
     return " and ".join(latex_escape(lnfn_name_from_dict(author)) for author in authors)
 
+def bibtex_capitalize(title):
+    out_words = []
+
+    # For this logic, we need Hyphenated-Words to be considered
+    # separately, but obviously re-combined correctly
+
+    words_and_seps = re.split(r'([\s\-])', title)
+    for word in words_and_seps:
+        if any(x.isupper() for x in word[1:]):
+            out_words += ["{%s}" % word]
+        else:
+            out_words += [word]
+    return "".join(out_words)
+
+
 
 def to_isodate(date):
     return date.isoformat()
@@ -681,6 +696,7 @@ class Renderfunc:
         env.filters['bibtype'] = lambda k: bibtype(k, entries, ulog)
         env.filters['pretty_author_list'] = pretty_author_list
         env.filters['bibtex_author_list'] = bibtex_author_list
+        env.filters['bibtex_capitalize'] = bibtex_capitalize
         env.filters['to_isodate'] = to_isodate
         env.filters['to_prettydate'] = to_prettydate
         env.filters['respace'] = respace
