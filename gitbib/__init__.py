@@ -9,6 +9,6 @@ collects additional metadata based on DOI or equivalent, and renders the entries
 in a variety of formats.
 """
 
-__version__ = "6"
+__version__ = "7"
 
 from .gitbib import Gitbib
