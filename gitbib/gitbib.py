@@ -309,6 +309,7 @@ def fnln_name_from_dict(author):
     else:
         return author
 
+
 def lnfn_name_from_dict(author):
     if isinstance(author, dict):
         return "{family}, {given}".format(**author)
@@ -420,7 +421,7 @@ def bibtype(key, entries, ulog):
     if str(s).strip() == "":
         ulog.warn("No type specified for {}. Using `article`".format(key))
         return 'article'
-    ulog.warn("Unknown type `{}` specified for {}".format(s,key))
+    ulog.warn("Unknown type `{}` specified for {}".format(s, key))
     return str(s)
 
 
@@ -429,7 +430,10 @@ def latex_escape(s):
     # http://stackoverflow.com/a/4580132
     conv = {'&': r'\&', '%': r'\%', '$': r'\$', '#': r'\#', '_': r'\_', '{': r'\{', '}': r'\}',
             '~': r'\textasciitilde{}', '^': r'\^{}', '\\': r'\textbackslash{}', '<': r'\textless',
-            '>': r'\textgreater', }
+            '>': r'\textgreater',
+            # no breaking space
+            '\u00A0': '~',
+            }
     accents = dict([
         # Grave accents
         (u"à", "\\`a"), (u"è", "\\`e"), (u"ì", "\\`\\i"), (u"ò", "\\`o"), (u"ù", "\\`u"), (u"ỳ", "\\`y"),
