@@ -55,8 +55,6 @@ def _fetch_crossref(ident, doi):
     time.sleep(1)
     log.debug("Request for {} returned {}".format(url, r.status_code))
     if r.status_code != 200:
-        log.error("Fetching {} with doi {} failed with code {}."
-                  .format(ident, doi, r.status_code))
         raise NoCrossref()
     data = r.json()['message']
     c = Crossref(doi=doi, data=data)
@@ -73,8 +71,6 @@ def _fetch_arxiv(ident, arxivid):
     time.sleep(1)
     log.debug("Request for {} returned {}".format(url, r.status_code))
     if r.status_code != 200:
-        log.error("Fetching {} with arxivid {} failed with code {}."
-                  .format(ident, arxivid, r.status_code))
         raise NoArxiv()
 
     # TODO: catch xml errors?
@@ -105,7 +101,7 @@ def cache(ident, my_meta, *, session, ulog):
                 crossref = _fetch_crossref(ident, my_meta['doi'])
                 session.add(crossref)
             except NoCrossref:
-                ulog.warn("A doi was given for {}, but it's not on crossref!".format(ident))
+                ulog.error("A doi was given for {}, but the crossref request failed!".format(ident))
 
     arxiv = None
     if 'arxiv' in my_meta:
@@ -118,7 +114,7 @@ def cache(ident, my_meta, *, session, ulog):
                 arxiv = _fetch_arxiv(ident, my_meta['arxiv'])
                 session.add(arxiv)
             except NoArxiv:
-                ulog.warn("An arxiv id was given for {}, but we couldn't get the data!".format(ident))
+                ulog.error("An arxiv id was given for {}, but we couldn't get the data!".format(ident))
 
     ret = {'none': my_meta}
     if crossref is not None:
@@ -405,16 +401,18 @@ def markdownify(text, entries):
     return "\n".join('<p class="card-text">{}</p>'.format(s) for s in splits)
 
 
-def to_bibtype(s):
+def bibtype(key, entries, ulog):
     type_mapping = {
         'journal-article': 'article',
         # TODO: More type mappings. Is there any dx.doi.org documentation for these?
     }
+    s = entries[key].get('type', '')
     if s in type_mapping:
         return type_mapping[s]
-    log.warn("Unmapped type {}".format(s))
-    if s is None or str(s).strip() == "":
+    if str(s).strip() == "":
+        ulog.warn("No type specified for {}. Using `article`".format(key))
         return 'article'
+    ulog.warn("Unknown type `{}` specified for {}".format(s,key))
     return str(s)
 
 
@@ -665,10 +663,10 @@ def render_by_input_filename(entries, input_fn, *, ulog):
 
 
 class Renderfunc:
-    def __init__(self, fn, fext, list_of_idents, entries):
+    def __init__(self, fn, fext, list_of_idents, entries, ulog):
         env = Environment(loader=PackageLoader('gitbib'))
         env.filters['latex_escape'] = latex_escape
-        env.filters['to_bibtype'] = to_bibtype
+        env.filters['bibtype'] = lambda k: bibtype(k, entries, ulog)
         env.filters['pretty_author_list'] = pretty_author_list
         env.filters['bibtex_author_list'] = bibtex_author_list
         env.filters['to_isodate'] = to_isodate
@@ -808,7 +806,7 @@ class Gitbib:
             if len(idents) > 0:
                 for ofmt in out_formats:
                     yield "{}.{}".format(fn, ofmt), self.out_render_formats[ofmt], Renderfunc(fn, ofmt, list_of_idents,
-                                                                                              self.entries)
+                                                                                              self.entries, ulog=ulog)
             else:
                 ulog.warn("No entries matched the specification for {}".format(fn))
 

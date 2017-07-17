@@ -6,7 +6,7 @@
 {% for ident in idents -%}
 {% set entry = entries[ident] -%}
 
-@{{ entry['type'] | to_bibtype }}{{ '{'+ident }},
+@{{ ident | bibtype }}{{ '{'+ident }},
   author  = "{{entry['author'] | bibtex_author_list}}",
   title   = "{{entry['title']}}",
   {% if entry['published-online'] -%}
