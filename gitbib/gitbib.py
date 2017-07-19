@@ -708,6 +708,10 @@ class Renderfunc:
             itertools.chain.from_iterable(entries[k].get('tags', [])
                                           for k in itertools.chain.from_iterable(list_of_idents))))
 
+        idents_by_tag = {tag: [k for k in itertools.chain.from_iterable(list_of_idents)
+                               if tag in entries[k].get('tags', [])]
+                         for tag in sorted_tags}
+
         list_of_sorted_ids = []
         for idents in list_of_idents:
             sorted_idents = sorted(idents, reverse=True, key=lambda k: sort_entry_key(entries, k))
@@ -719,6 +723,7 @@ class Renderfunc:
         self.entries = entries
         self.list_of_sorted_ids = list_of_sorted_ids
         self.all_tags = sorted_tags
+        self.idents_by_tag = idents_by_tag
 
     def __call__(self, out_f, user_info):
         template = self.env.get_template('template.{}'.format(self.fext))
@@ -726,6 +731,7 @@ class Renderfunc:
             fn=self.fn,
             entries=self.entries,
             list_of_idents=self.list_of_sorted_ids,
+            idents_by_tag=self.idents_by_tag,
             all_tags=self.all_tags,
             user_info=user_info,
         ).encode())

@@ -27,6 +27,60 @@
         margin-bottom: 0.5rem;
       }
     </style>
+
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.0.0/jquery.min.js"></script>
+    <script>
+        // 0 - all implicitly enabled
+        // 1 - enabled
+        // 2 - hidden
+        var tags = {
+        {% for tag in all_tags -%}
+            '{{ tag }}': 0,
+        {% endfor -%}
+        };
+        var all_tags = true;
+
+        function tag_toggle(name) {
+            if (all_tags) {
+                for (var i in tags) {
+                    tag_disable(i);
+                    tags[i] = 2;
+                }
+                all_tags = false;
+            }
+
+            if (tags[name] === 1) {
+                tag_disable(name);
+                tags[name] = 2;
+            } else if (tags[name] === 2) {
+                tag_enable(name);
+                tags[name] = 1;
+            }
+        }
+
+        function tag_enable(name) {
+            {% for tag in all_tags %}
+                if (name === '{{ tag }}'){
+                    {% for ident in idents_by_tag[tag] %}
+                      $('#{{ ident | safe_css }}').show();
+                    {% endfor %}
+                    $('#{{ tag | safe_css }}').removeClass('tag-default').addClass('tag-primary')
+                }
+            {% endfor %}
+        }
+
+        function tag_disable(name) {
+            {% for tag in all_tags %}
+            if (name === '{{ tag }}'){
+                {% for ident in idents_by_tag[tag] %}
+                $('#{{ ident | safe_css }}').hide();
+                {% endfor -%}
+                $('#{{ tag | safe_css }}').removeClass('tag-primary').addClass('tag-default')
+            }
+            {% endfor %}
+        }
+    </script>
+
   </head>
   <body data-spy="scroll" data-target="#navlist">
     <div class="container">
@@ -38,7 +92,7 @@
             </a> |
             All tags:
             {% for tag in all_tags %}
-            <span class="tag tag-default">{{tag}}</span>
+            <span class="tag tag-default" onclick="tag_toggle('{{tag}}')" id="{{tag}}">{{tag}}</span>
             {% endfor %}
             </h5>
             {% for idents in list_of_idents %}
