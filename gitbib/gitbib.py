@@ -272,6 +272,22 @@ def _internal_rep_arxiv(my_meta, their_meta, *, ulog):
 
 
 def _internal_rep_none(my_meta, their_meta, *, ulog):
+    if 'author' in my_meta:
+        if isinstance(my_meta['author'], str):
+            ulog.warn("{}'s `author` field should be a list")
+        else:
+            new_auths = []
+            for a in my_meta['author']:
+                if isinstance(a, dict):
+                    new_auths += [a]
+                elif isinstance(a, str):
+                    if ',' in a:
+                        splits = [s.strip() for s in a.split(',')]
+                        new_auths += [{'family': splits[0], 'given': splits[1]}]
+                    else:
+                        splits = a.split()
+                        new_auths += [{'family': splits[-1], 'given': ' '.join(splits[:-1])}]
+            my_meta['author'] = new_auths
     return my_meta
 
 
@@ -324,6 +340,7 @@ def pretty_author_list(authors):
 def bibtex_author_list(authors):
     return " and ".join(latex_escape(lnfn_name_from_dict(author)) for author in authors)
 
+
 def bibtex_capitalize(title):
     out_words = []
 
@@ -337,7 +354,6 @@ def bibtex_capitalize(title):
         else:
             out_words += [word]
     return "".join(out_words)
-
 
 
 def to_isodate(date):
