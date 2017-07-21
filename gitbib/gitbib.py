@@ -288,6 +288,16 @@ def _internal_rep_none(my_meta, their_meta, *, ulog):
                         splits = a.split()
                         new_auths += [{'family': splits[-1], 'given': ' '.join(splits[:-1])}]
             my_meta['author'] = new_auths
+
+    if 'number' in my_meta and 'issue' not in my_meta:
+        my_meta['issue'] = my_meta['number']
+
+    if 'pages' in my_meta and 'page' not in my_meta:
+        my_meta['page'] = my_meta['pages'].replace('--', '-')
+
+    if 'journal' in my_meta and 'container-title' not in my_meta:
+        my_meta['container-title'] = _container_title_logic([my_meta['journal']], ulog=ulog)
+
     return my_meta
 
 
