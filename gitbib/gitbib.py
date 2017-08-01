@@ -116,11 +116,27 @@ def cache(ident, my_meta, *, session, ulog):
             except NoArxiv:
                 ulog.error("An arxiv id was given for {}, but we couldn't get the data!".format(ident))
 
+    biorxiv = None
+    if 'biorxiv' in my_meta:
+        try:
+            biorxiv = session.query(Crossref).filter(Crossref.doi == my_meta['biorxiv']).one()
+            ulog.debug("{}'s biorxiv entry was cached via doi/crossref".format(ident))
+        except NoResultFound:
+            try:
+                ulog.info("Fetching data for {} biorxiv via doi/crossref".format(ident))
+                biorxiv = _fetch_crossref(ident, my_meta['biorxiv'])
+                session.add(biorxiv)
+            except NoCrossref:
+                ulog.error("A biorxiv doi was given for {}, but the crossref request failed!".format(ident))
+
+
     ret = {'none': my_meta}
     if crossref is not None:
         ret['doi'] = crossref.data
     if arxiv is not None:
         ret['arxiv'] = arxiv.data
+    if biorxiv is not None:
+        ret['biorxiv'] = biorxiv.data
 
     return ret
 
@@ -218,8 +234,7 @@ def _container_title_logic(ctitles, *, ulog):
         'short': ctitles[-1],
     }
 
-
-def _internal_rep_doi(my_meta, their_meta, *, ulog):
+def _crossref_internal_rep_helper1(ulog):
     want = {k: lambda x: x
             for k in [
                 'author',
@@ -240,13 +255,30 @@ def _internal_rep_doi(my_meta, their_meta, *, ulog):
     want['published-online'] = _doi_to_pydate
     want['title'] = lambda ts: ts[0]
     want['container-title'] = lambda x: _container_title_logic(x, ulog=ulog)
+    return want
 
-    their_meta_keys = set(their_meta)
-    want_keys = their_meta_keys & set(want.keys())
+
+def _crossref_internal_rep_helper2(my_meta, their_meta, want, want_keys, other_keys):
     return {**my_meta,
             **{k: want[k](v) for k, v in their_meta.items() if k in want_keys},
-            'other_keys': list(their_meta_keys - want_keys)
+            'other_keys': list(other_keys),
             }
+
+
+def _internal_rep_doi(my_meta, their_meta, *, ulog):
+    want = _crossref_internal_rep_helper1(ulog)
+    their_meta_keys = set(their_meta)
+    want_keys = their_meta_keys & set(want.keys())
+    other_keys = their_meta_keys - want_keys
+    return _crossref_internal_rep_helper2(my_meta, their_meta, want, want_keys, other_keys)
+
+def _internal_rep_biorxiv(my_meta, their_meta, *, ulog):
+    want = _crossref_internal_rep_helper1(ulog)
+    want['container-title'] = lambda x: {'full':'bioRxiv', 'short': 'bioRxiv'}
+    their_meta_keys = set(their_meta)
+    want_keys = their_meta_keys & set(want.keys())
+    other_keys = their_meta_keys - want_keys
+    return _crossref_internal_rep_helper2(my_meta, their_meta, want, want_keys, other_keys)
 
 
 def _internal_rep_arxiv(my_meta, their_meta, *, ulog):
@@ -305,16 +337,19 @@ def _internal_representation(ident, my_meta, *, session, ulog):
     funcs = {
         'doi': _internal_rep_doi,
         'arxiv': _internal_rep_arxiv,
+        'biorxiv': _internal_rep_biorxiv,
         'none': _internal_rep_none,
     }
     their_meta = cache(ident, my_meta, session=session, ulog=ulog)
     # TODO: better merging.
-    # Right now we prefer doi -> arxiv -> none
+    # Right now we prefer doi -> arxiv -> biorxiv -> none
     # Really, we should merge data
     if 'doi' in their_meta:
         k = 'doi'
     elif 'arxiv' in their_meta:
         k = 'arxiv'
+    elif 'biorxiv' in their_meta:
+        k = 'biorxiv'
     else:
         k = 'none'
     return funcs[k](my_meta, their_meta[k], ulog=ulog)
