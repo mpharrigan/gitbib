@@ -8,7 +8,7 @@
 
 @{{ ident | bibtype }}{{ '{'+ident }},
   author  = "{{entry['author'] | bibtex_author_list}}",
-  title   = "{{entry.get('title', '') | bibtex_capitalize}}",
+  title   = "{{entry.get('title', '') | latex_escape | bibtex_capitalize}}",
   {% if entry['published-online'] -%}
   year    = "{{entry['published-online'] | attr('year') }}",
   {% elif entry['published-print'] -%}
