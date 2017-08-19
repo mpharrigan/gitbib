@@ -486,10 +486,44 @@ def markdownify(text, entries):
 
 
 def bibtype(key, entries, ulog):
+    # https://api.crossref.org/v1/types
     type_mapping = {
+        ## Cross-ref
+        #'book-section'
+        #'monograph'
+        #'report'
+        #'book-track'
         'journal-article': 'article',
+        #'book-part'
+        'other': 'misc',
+        'book': 'book',
+        #'journal-volume'
+        #'book-set'
+        #'reference-entry'
+        'proceedings-article': 'proceedings',
+        #'journal'
+        #'component'
+        'book-chapter': 'incollection',
+        #'report-series'
+
+        ## Arxiv
         'unpublished': 'unpublished',
-        # TODO: More type mappings. Is there any dx.doi.org documentation for these?
+
+        ## Biorxiv
+        'posted-content': 'unpublished',
+
+        ## Other raw bibtex
+        'article': 'article',
+        'booklet': 'booklet',
+        'inbook': 'inbook', # crossref book-part?
+        'incollection': 'incollection', # crossref book-section?
+        'inproceedings': 'inproceedings',
+        'manual': 'manual',
+        'mastersthesis': 'mastersthesis',
+        'misc': 'misc',
+        'phdthesis': 'phdthesis',
+        'proceedings': 'proceedings',
+        'techreport': 'techreport',
     }
     s = entries[key].get('type', '')
     if s in type_mapping:
@@ -752,7 +786,7 @@ def render_by_input_filename(entries, input_fn, *, ulog):
 
 class Renderfunc:
     def __init__(self, fn, fext, list_of_idents, entries, ulog):
-        env = Environment(loader=PackageLoader('gitbib'))
+        env = Environment(loader=PackageLoader('gitbib'), keep_trailing_newline=True)
         env.filters['latex_escape'] = latex_escape
         env.filters['bibtype'] = lambda k: bibtype(k, entries, ulog)
         env.filters['pretty_author_list'] = pretty_author_list

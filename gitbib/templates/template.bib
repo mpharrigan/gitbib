@@ -7,21 +7,41 @@
 {% set entry = entries[ident] -%}
 
 @{{ ident | bibtype }}{{ '{'+ident }},
-  author  = "{{entry['author'] | bibtex_author_list}}",
-  title   = "{{entry.get('title', '') | latex_escape | bibtex_capitalize}}",
+  author    = "{{entry['author'] | bibtex_author_list}}",
+  title     = "{{entry.get('title', '') | latex_escape | bibtex_capitalize}}",
+  {% if entry['booktitle'] -%}
+  booktitle = "{{entry['booktitle']}}",
+  {% endif -%}
   {% if entry['published-online'] -%}
-  year    = "{{entry['published-online'] | attr('year') }}",
+  year      = "{{entry['published-online'] | attr('year') }}",
   {% elif entry['published-print'] -%}
-  year    = "{{entry['published-print'] | attr('year') }}",
+  year      = "{{entry['published-print'] | attr('year') }}",
   {% endif -%}
   {% if entry['container-title'] -%}
-  journal = "{{entry['container-title']['short'] | latex_escape }}",{% endif %}
-  volume  = "{{entry['volume']}}",
-  number  = "{{entry['issue']}}",
-  pages   = "{{ entry['page'] | replace('-', '--') }}",
-  doi     = "{{ entry['doi'] }}",
-  {% if entry['arxiv'] -%}
-  note    = "arXiv:{{ entry['arxiv'] }}",{% endif %}
+  journal   = "{{entry['container-title']['short'] | latex_escape }}",
+  {% endif -%}
+  {% if entry['address'] -%} {# note: I don't think this is ever given by crossref #}
+  address   = "{{entry['address']}}",
+  {% endif -%}
+  volume    = "{{entry['volume']}}",
+  number    = "{{entry['issue']}}",
+  chapter   = "{{entry['chapter']}}",
+  pages     = "{{ entry['page'] | replace('-', '--') }}",
+  {% if entry['note'] -%}
+  note      = "{{entry['note']}}",
+  {% elif entry['arxiv'] -%}
+  note      = "arXiv:{{ entry['arxiv'] }}",
+  {% elif entry['biorxiv'] -%}
+  note      = "bioRxiv:{{ entry['biorxiv'] }}",
+  {% endif -%}
+  {% if entry['publisher'] -%}
+  publisher = "{{entry['publisher']}}",
+  {% endif -%}
+  {% if not entry['doi'] and entry['biorxiv'] -%}
+  doi       = "{{ entry['biorxiv'] }}",
+  {% else -%}
+  doi       = "{{ entry['doi'] }}",
+  {% endif %}
 }
 
 {% endfor %}
