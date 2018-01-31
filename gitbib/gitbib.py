@@ -344,6 +344,13 @@ def _internal_rep_none(my_meta, their_meta, *, ulog):
     return my_meta
 
 
+def _generic_internal_rep(ident, my_meta, *, ulog):
+    pdf_path = f'pdfs/{ident}.pdf'
+    if os.path.exists(pdf_path):
+        my_meta['pdf'] = pdf_path
+    return my_meta
+
+
 def _internal_representation(ident, my_meta, *, session, ulog):
     funcs = {
         'doi': _internal_rep_doi,
@@ -363,7 +370,9 @@ def _internal_representation(ident, my_meta, *, session, ulog):
         k = 'biorxiv'
     else:
         k = 'none'
-    return funcs[k](my_meta, their_meta[k], ulog=ulog)
+    my_meta = funcs[k](my_meta, their_meta[k], ulog=ulog)
+    my_meta = _generic_internal_rep(ident, my_meta, ulog=ulog)
+    return my_meta
 
 
 def internal_representation(all_my_meta, *, session, ulog):
