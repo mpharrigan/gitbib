@@ -119,6 +119,7 @@
                   {% if entry['volume'] %}{{entry['volume']}}, {% endif %}
                   {% if entry['issue'] %}{{entry['issue']}}, {% endif %}
                   {% if entry['page'] %}{{entry['page']}}. {% endif %}
+                  {% if entry['url'] %}<a href="{{entry['url']}}">{{entry['url']}}</a>{% endif %}
                   {% if entry['doi'] %}<a href="https://dx.doi.org/{{entry['doi']}}">doi:{{entry['doi']}}</a>{% endif %}
                   {% if entry['arxiv'] %}<a href="https://arxiv.org/abs/{{entry['arxiv']}}">arxiv:{{entry['arxiv']}}</a>{% endif %}
                   {% if entry['pdf'] %}<a href="{{entry['pdf']}}">[pdf]</a>{% endif %}

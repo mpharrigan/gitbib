@@ -314,6 +314,10 @@ def _internal_rep_arxiv(my_meta, their_meta, *, ulog):
             }
 
 
+def _internal_rep_url(my_meta, their_meta, *, ulog):
+    return my_meta
+
+
 def _internal_rep_none(my_meta, their_meta, *, ulog):
     if 'author' in my_meta:
         if isinstance(my_meta['author'], str):
@@ -356,11 +360,12 @@ def _internal_representation(ident, my_meta, *, session, ulog):
         'doi': _internal_rep_doi,
         'arxiv': _internal_rep_arxiv,
         'biorxiv': _internal_rep_biorxiv,
+        'url': _internal_rep_url,
         'none': _internal_rep_none,
     }
     their_meta = cache(ident, my_meta, session=session, ulog=ulog)
     # TODO: better merging.
-    # Right now we prefer doi -> arxiv -> biorxiv -> none
+    # Right now we prefer doi -> arxiv -> biorxiv -> url -> none
     # Really, we should merge data
     if 'doi' in their_meta:
         k = 'doi'
@@ -368,6 +373,8 @@ def _internal_representation(ident, my_meta, *, session, ulog):
         k = 'arxiv'
     elif 'biorxiv' in their_meta:
         k = 'biorxiv'
+    elif 'url' in their_meta:
+        k = 'url'
     else:
         k = 'none'
     my_meta = funcs[k](my_meta, their_meta[k], ulog=ulog)
