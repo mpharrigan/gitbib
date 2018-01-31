@@ -164,7 +164,30 @@ class GitbibFileNotFoundError(FileNotFoundError):
     pass
 
 
-def read_yamls(repo_dir, gitbib_yaml_fn, *, ulog):
+def parse_source_files(source_files, repo_dir, abs_gitbib_fn, *, ulog):
+    """Take a source_file relative glob pattern or list of glob patterns (perhaps as inputted
+    in the config file) and return a list of absolute filenames to load.
+    """
+    if not isinstance(source_files, list):
+        source_files = [source_files]
+    source_files = list(itertools.chain.from_iterable(glob.iglob("{}/{}".format(repo_dir, fn))
+                                                      for fn in source_files))
+    source_files = [fn for fn in source_files if os.path.abspath(fn) != abs_gitbib_fn]
+    return source_files
+
+
+def read_yamls(source_files):
+    my_meta = dict()
+    for fn in source_files:
+        for k, v in read_yaml(fn).items():
+            if k in my_meta:
+                raise DuplicateKeyError(k)
+            v['input_fn'] = fn
+            my_meta[k] = v
+    return my_meta
+
+
+def read_config_and_yamls(repo_dir, gitbib_yaml_fn, *, ulog):
     abs_gitbib_fn = "{}/{}".format(repo_dir, gitbib_yaml_fn)
     abs_gitbib_fn = os.path.abspath(abs_gitbib_fn)
     if not os.path.exists(abs_gitbib_fn):
@@ -172,22 +195,10 @@ def read_yamls(repo_dir, gitbib_yaml_fn, *, ulog):
     with open(abs_gitbib_fn) as f:
         config = yaml.load(f)
     source_files = config.get('source_files', '*.yaml')
-    if not isinstance(source_files, list):
-        source_files = [source_files]
-    source_files = list(itertools.chain.from_iterable(glob.iglob("{}/{}".format(repo_dir, fn)) for fn in source_files))
+    source_files = parse_source_files(source_files=source_files, repo_dir=repo_dir,
+                                      abs_gitbib_fn=abs_gitbib_fn, ulog=ulog)
     ulog.info("Loading these yaml files: {}".format(", ".join(source_files)))
-    my_meta = dict()
-    for fn in source_files:
-        if os.path.abspath(fn) == abs_gitbib_fn:
-            ulog.debug("Skipping {}".format(fn))
-            continue
-        rel_fn = os.path.relpath(fn, repo_dir)
-        for k, v in read_yaml(fn).items():
-            if k in my_meta:
-                raise DuplicateKeyError(k)
-            v['input_fn'] = rel_fn
-            my_meta[k] = v
-    return config, my_meta
+    return config, read_yamls(source_files)
 
 
 # We have to do some massaging of the data returned by the api's.
@@ -785,6 +796,11 @@ def render_by_input_filename(entries, input_fn, *, ulog):
 
 
 class Renderfunc:
+    default_user_info = {
+        'slugname': 'gitbib',
+        'index_url': 'index.html',
+    }
+
     def __init__(self, fn, fext, list_of_idents, entries, ulog):
         env = Environment(loader=PackageLoader('gitbib'), keep_trailing_newline=True)
         env.filters['latex_escape'] = latex_escape
@@ -820,8 +836,11 @@ class Renderfunc:
         self.all_tags = sorted_tags
         self.idents_by_tag = idents_by_tag
 
-    def __call__(self, out_f, user_info):
-        template = self.env.get_template('template.{}'.format(self.fext))
+    def write(self, out_f, user_info=None):
+        if user_info is None:
+            user_info = self.default_user_info
+
+        template = self.env.get_template(f'template.{self.fext}')
         out_f.write(template.render(
             fn=self.fn,
             entries=self.entries,
@@ -830,6 +849,24 @@ class Renderfunc:
             all_tags=self.all_tags,
             user_info=user_info,
         ).encode())
+
+    def __call__(self, out_f, user_info):
+        # TODO: remove and have callers call explicit write method
+        return self.write(out_f, user_info)
+
+    def save(self, user_info=None):
+        if user_info is None:
+            user_info = self.default_user_info
+        template = self.env.get_template(f'template.{self.fext}')
+        with open(f'{self.fn}.{self.fext}', 'w') as f:
+            f.write(template.render(
+                fn=self.fn,
+                entries=self.entries,
+                list_of_idents=self.list_of_sorted_ids,
+                idents_by_tag=self.idents_by_tag,
+                all_tags=self.all_tags,
+                user_info=user_info,
+            ))
 
 
 class IndexRenderfunc:
@@ -853,7 +890,7 @@ class Gitbib:
         ulog.debug("Connected to logging.")
         unknown_err_str = "An unknown error occured ({}): {} ({}). Please alert the developers"
         try:
-            config, my_meta = read_yamls(repo_dir, gitbib_yaml_fn, ulog=ulog)
+            config, my_meta = read_config_and_yamls(repo_dir, gitbib_yaml_fn, ulog=ulog)
         except GitbibFileNotFoundError as e:
             ulog.error("Gitbib file not found. Are you sure this is a gitbib repository?")
             raise e
