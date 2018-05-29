@@ -340,7 +340,7 @@ def _internal_rep_none(my_meta, their_meta, *, ulog):
         my_meta['issue'] = my_meta['number']
 
     if 'pages' in my_meta and 'page' not in my_meta:
-        my_meta['page'] = my_meta['pages'].replace('--', '-')
+        my_meta['page'] = str(my_meta['pages']).replace('--', '-')
 
     if 'journal' in my_meta and 'container-title' not in my_meta:
         my_meta['container-title'] = _container_title_logic([my_meta['journal']], ulog=ulog)
