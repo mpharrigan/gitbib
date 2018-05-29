@@ -12,7 +12,7 @@ from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
 import sys
 import yaml
 
-entry_type = kwd("article") | kwd("unpublished") | kwd("incollection")
+entry_type = kwd("article") | kwd("unpublished") | kwd("incollection") | kwd("misc") | kwd("book")
 cite_key = Word(alphanums + ":/._-")
 
 LCURLY = Suppress('{')
