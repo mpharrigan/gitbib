@@ -70,11 +70,19 @@ def entries_to_python(entries):
 
 Entries.setParseAction(entries_to_python)
 
+
 def _doi_only(fields):
     if 'doi' in fields:
         return {'doi': fields['doi']}
     else:
         return fields
+
+
+def parse_bib_file(bib_fn):
+    entries = Entries.parseFile(bib_fn, parseAll=True)
+    entries = {key: fields for _, key, fields in entries}
+    return entries
+
 
 def main():
     parser = ArgumentParser(formatter_class=ArgumentDefaultsHelpFormatter)
@@ -82,8 +90,7 @@ def main():
     parser.add_argument('--doi-only', action='store_true', default=False, help='Only keep DOI')
     args = parser.parse_args()
 
-    entries = Entries.parseFile(args.bib_fn, parseAll=True)
-    entries = {key: fields for _, key, fields in entries}
+    entries = parse_bib_file(args.bib_fn)
 
     if args.doi_only:
         entries = {key: _doi_only(fields) for key, fields in entries.items()}
