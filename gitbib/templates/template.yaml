@@ -1,0 +1,25 @@
+{# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/. #}
+
+{% for ident in list_of_idents[0] -%}
+{% set entry = entries[ident] -%}
+
+{{ident}}:
+  {% if entry['arxiv'] -%}
+  arxiv: "{{entry['arxiv']}}"
+  {% endif -%}
+  {% if entry['biorxiv'] -%}
+  biorxiv: "{{entry['biorxiv']}}"
+  {% endif -%}
+  {% if entry['doi'] -%}
+  doi: {{entry['doi']}}
+  {% endif -%}
+  {% if entry['tags'] -%}
+  tags: {{entry['tags']}}
+  {% endif -%}
+  {% if entry['description'] -%}
+  description: |+
+    {{entry['description'] | indent(4)}}
+  {% endif %}
+{% endfor %}

@@ -359,10 +359,37 @@ def _internal_rep_none(my_meta, their_meta, *, ulog):
     return my_meta
 
 
+def _stagger(the_list, n_staggers):
+    yield from zip(*[the_list[i::n_staggers] for i in range(n_staggers)])
+
+
 def _generic_internal_rep(ident, my_meta, *, ulog):
     pdf_path = f'pdfs/{ident}.pdf'
     if os.path.exists(pdf_path):
         my_meta['pdf'] = pdf_path
+
+    # TODO: paragraphs
+    # splits = re.split(r'\n\n+', my_meta['description'])
+    # return "\n".join(splits)
+
+    description = []
+    # [ident] or [ident=111] NOT [ident](...
+    splits = re.split(IN_TEXT_CITATION_RE, my_meta.get('description', ''))
+    for text1, ident, _doi_ident, _arxiv_ident, _normal_ident, _equals_sign, n, text2 in _stagger(splits, 8):
+        description += [text1, {'i': ident, 'n': n}, text2]
+
+    description3 = []
+    for desc_part in description:
+        if not isinstance(desc_part, str):
+            description3 += [desc_part]
+            continue
+
+        # [text](link) followed by space or punctuation
+        splits = re.split(r'\[(.+)\]\(([\w\.\:\/]+)\)(?=[\s\?\.\!])', desc_part)
+        for text1, s, href, text2 in _stagger(splits, 4):
+            description3 += [text1, {'s': s, 'href': href}, text2]
+
+    my_meta['parsed_description'] = description3
     return my_meta
 
 
@@ -623,6 +650,18 @@ def latex_escape(s):
     return regex.sub(lambda match: conv[match.group()], s)
 
 
+def _indent_line(line, n_chars):
+    if line == '':
+        return line
+
+    return ' ' * n_chars + line
+
+
+def yaml_indent(s, n_chars):
+    lines = s.splitlines()
+    return lines[0] + '\n' + '\n'.join(_indent_line(line, n_chars) for line in lines[1:])
+
+
 # Rendering is straightforward application of jinja2. Note that we have
 # to pass a sorted list of ident's (keys to the entries dictionary)
 
@@ -844,6 +883,8 @@ class Renderfunc:
         env.filters['safe_css'] = safe_css
         env.filters['list_of_pdbs'] = list_of_pdbs
         env.filters['markdownify'] = lambda s: markdownify(s, entries)
+        if fext == 'yaml':
+            env.filters['indent'] = yaml_indent
 
         sorted_tags = sorted(set(
             itertools.chain.from_iterable(entries[k].get('tags', [])
@@ -894,7 +935,7 @@ class Renderfunc:
         if user_info is None:
             user_info = self.default_user_info
         template = self.env.get_template(f'template.{self.fext}')
-        with open(f'{self.fn}.{self.fext}', 'w') as f:
+        with open(f'{self.fn}.{self.fext}', 'wb') as f:
             f.write(template.render(
                 fn=self.fn,
                 entries=self.entries,
@@ -902,7 +943,7 @@ class Renderfunc:
                 idents_by_tag=self.idents_by_tag,
                 all_tags=self.all_tags,
                 user_info=user_info,
-            ))
+            ).encode('utf-8'))
 
 
 class IndexRenderfunc:
