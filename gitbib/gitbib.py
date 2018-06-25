@@ -633,7 +633,7 @@ def sort_entry_title(entries, k):
     return "zzzz"
 
 
-def sort_entry_key(entries, k):
+def sort_date_title(entries, k):
     return sort_entry_date(entries, k), sort_entry_title(entries, k)
 
 
@@ -817,7 +817,7 @@ class Renderfunc:
         'index_url': 'index.html',
     }
 
-    def __init__(self, fn, fext, list_of_idents, entries, ulog):
+    def __init__(self, fn, fext, list_of_idents, entries, ulog, sort='date-title'):
         env = Environment(loader=PackageLoader('gitbib'), keep_trailing_newline=True)
         env.filters['latex_escape'] = latex_escape
         env.filters['bibtype'] = lambda k: bibtype(k, entries, ulog)
@@ -840,9 +840,15 @@ class Renderfunc:
                          for tag in sorted_tags}
 
         list_of_sorted_ids = []
-        for idents in list_of_idents:
-            sorted_idents = sorted(idents, reverse=True, key=lambda k: sort_entry_key(entries, k))
-            list_of_sorted_ids += [sorted_idents]
+        if sort == 'date-title':
+            for idents in list_of_idents:
+                sorted_idents = sorted(idents, reverse=True,
+                                       key=lambda k: sort_date_title(entries, k))
+                list_of_sorted_ids += [sorted_idents]
+        elif sort == 'none':
+            list_of_sorted_ids = list_of_idents
+        else:
+            raise ValueError(f"Unknown sort option '{sort}'")
 
         self.fn = fn
         self.fext = fext
