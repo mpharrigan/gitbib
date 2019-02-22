@@ -702,25 +702,27 @@ def resolve_short_description_crossrefs(text, ident, entry, *, ulog):
     return text
 
 
+def extract_citations_from_entry(entry, *, ident, ulog):
+    if 'description' in entry:
+        ulog.debug("Trying to extract references from {}'s description".format(ident))
+        cites, references = extract_citations_from_description(entry['description'], ulog=ulog)
+        if len(cites) > 0:
+            if 'cites' in entry:
+                entry['cites'] += cites
+            else:
+                entry['cites'] = cites
+        entry['description'] = resolve_short_description_crossrefs(entry['description'],
+                                                                   ident, entry, ulog=ulog)
+
+    return entry
+
+
 def resolve_crossrefs(entries, *, session, ulog):
     # TODO: Maybe do (a subset of the markdownification) here and
     # TODO: also add those things to cites / do error checking / whatever
     stubs = []
     for ident, entry in entries.items():
-        if 'description' in entry:
-            ulog.debug("Trying to extract references from {}'s description".format(ident))
-            cites, references = extract_citations_from_description(entry['description'], ulog=ulog)
-            if len(cites) > 0:
-                if 'cites' in entry:
-                    entry['cites'] += cites
-                else:
-                    entry['cites'] = cites
-
-            if len(references) > 0:
-                if 'references' in entry:
-                    entry['references'] += references
-                else:
-                    entry['references'] = references
+        entry = extract_citations_from_entry(entry, ident=ident, ulog=ulog)
 
         if 'cites' in entry:
             ulog.debug("Processing citations for {}".format(ident))
@@ -746,8 +748,9 @@ def resolve_crossrefs(entries, *, session, ulog):
                     ulog.warn("{}'s reference to {} is unresolved".format(ident, ref['id']))
                     ref['resolved'] = False
 
-        if 'description' in entry:
-            entry['description'] = resolve_short_description_crossrefs(entry['description'], ident, entry, ulog=ulog)
+        # TODO: Don't know if this has to come after the "resolution" stuff
+        # if 'description' in entry:
+        #     entry['description'] = resolve_short_description_crossrefs(entry['description'], ident, entry, ulog=ulog)
 
     entries.update(dict(stubs))
     return entries
