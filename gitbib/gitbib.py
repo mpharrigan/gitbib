@@ -47,9 +47,10 @@ class NoCrossref(RuntimeError):
     pass
 
 
-def _fetch_crossref(ident, doi):
-    log.debug("{} doi: {}".format(ident, doi))
-    headers = {'Accept': 'application/json; charset=utf-8'}
+def _fetch_crossref(doi):
+    headers = {'Accept': 'application/json; charset=utf-8',
+               'User-Agent': 'Gitbib/1 (https://github.com/mpharrigan/gitbib) '
+                             'mailto:matthew.harrigan@outlook.com'}
     url = "http://api.crossref.org/works/{doi}".format(doi=doi)
     r = requests.get(url, headers=headers)
     time.sleep(1)
@@ -57,15 +58,14 @@ def _fetch_crossref(ident, doi):
     if r.status_code != 200:
         raise NoCrossref()
     data = r.json()['message']
-    c = Crossref(doi=doi, data=data)
-    return c
+    return data
 
 
 class NoArxiv(RuntimeError):
     pass
 
 
-def _fetch_arxiv(ident, arxivid):
+def _fetch_arxiv(arxivid):
     url = 'http://export.arxiv.org/api/query?id_list={}'.format(arxivid)
     r = requests.get(url)
     time.sleep(1)
@@ -74,7 +74,8 @@ def _fetch_arxiv(ident, arxivid):
         raise NoArxiv()
 
     # TODO: catch xml errors?
-    ns = {'atom': "http://www.w3.org/2005/Atom"}
+    ns = {'atom': "http://www.w3.org/2005/Atom",
+          'arxiv': "http://arxiv.org/schemas/atom"}
     tree = ElementTree.fromstring(r.text).find('atom:entry', ns)
     data = {
         'title': tree.find('atom:title', ns).text,
@@ -85,8 +86,11 @@ def _fetch_arxiv(ident, arxivid):
     }
     for auth in tree.iterfind('atom:author', ns):
         data['authors'] += [auth.find('atom:name', ns).text]
-    a = Arxiv(arxivid=arxivid, data=data)
-    return a
+
+    doi_elem = tree.find('arxiv:doi', ns)
+    if doi_elem is not None:
+        data['doi'] = doi_elem.text
+    return data
 
 
 def cache(ident, my_meta, *, session, ulog):
@@ -98,7 +102,9 @@ def cache(ident, my_meta, *, session, ulog):
         except NoResultFound:
             try:
                 ulog.info("Fetching data for {} via doi/crossref".format(ident))
-                crossref = _fetch_crossref(ident, my_meta['doi'])
+                doi = my_meta['doi']
+                crossref_data = _fetch_crossref(doi=doi)
+                crossref = Crossref(doi=doi, data=crossref_data)
                 session.add(crossref)
             except NoCrossref:
                 ulog.error("A doi was given for {}, but the crossref request failed!".format(ident))
@@ -111,10 +117,12 @@ def cache(ident, my_meta, *, session, ulog):
         except NoResultFound:
             try:
                 ulog.info("Fetching data for {} via arxiv".format(ident))
-                arxiv = _fetch_arxiv(ident, my_meta['arxiv'])
+                arxiv_data = _fetch_arxiv(my_meta['arxiv'])
+                arxiv = Arxiv(arxivid=my_meta['arxiv'], data=arxiv_data)
                 session.add(arxiv)
             except NoArxiv:
-                ulog.error("An arxiv id was given for {}, but we couldn't get the data!".format(ident))
+                ulog.error("An arxiv id was given for {}, "
+                           "but we couldn't get the data!".format(ident))
 
     biorxiv = None
     if 'biorxiv' in my_meta:
@@ -124,10 +132,13 @@ def cache(ident, my_meta, *, session, ulog):
         except NoResultFound:
             try:
                 ulog.info("Fetching data for {} biorxiv via doi/crossref".format(ident))
-                biorxiv = _fetch_crossref(ident, my_meta['biorxiv'])
+                doi = my_meta['biorxiv']
+                biorxiv_data = _fetch_crossref(doi=doi)
+                biorxiv = Crossref(doi=doi, data=biorxiv_data)
                 session.add(biorxiv)
             except NoCrossref:
-                ulog.error("A biorxiv doi was given for {}, but the crossref request failed!".format(ident))
+                ulog.error("A biorxiv doi was given for {}, "
+                           "but the crossref request failed!".format(ident))
 
 
     ret = {'none': my_meta}
