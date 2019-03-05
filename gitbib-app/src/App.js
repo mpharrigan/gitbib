@@ -20,19 +20,19 @@ function Dates(props) {
 }
 
 function ContainerTitle(props) {
-  return <em>{props.entry['container-title']['full']} ({props.entry['container-title']['short']})</em>
+  return <em>{props.entry['container_title']['full_name']} ({props.entry['container_title']['short_name']})</em>
 }
 
 function EntryCard(props) {
   const entry = props.entry;
   return <div className="card">
     <div className="card-block">
-      <h4 className="card-title">{props.entry['title']}</h4>
-      <h6 className="card-subtitle text-muted"><strong>{props.entry['ident']}</strong></h6>
-      <p className="card-text"><AuthorList authors={props.entry['author']}/></p>
-      <Dates entry={props.entry}/>
-      <p class="card-text">
-        {entry['container-title'] && <ContainerTitle entry={entry}/>}
+      <h4 className="card-title">{entry['title']}</h4>
+      <h6 className="card-subtitle text-muted"><strong>{entry['ident']}</strong></h6>
+      <p className="card-text"><AuthorList authors={entry['authors']}/></p>
+      <Dates entry={entry}/>
+      <p className="card-text">
+        {entry['container_title'] && <ContainerTitle entry={entry}/>}
         {entry['volume'] && entry['volume'] + ', '}
         {entry['issue'] && entry['issue'] + ', '}
         {entry['page'] && entry['page'] + '. '}
@@ -40,12 +40,6 @@ function EntryCard(props) {
     </div>
   </div>
 }
-
-// Take a json dictionary (which gets loaded as an Object) and turn it into a
-// straight-up Array with the "keys" added to the field named ident.
-var gitbib_data_entries_map = new Map(Object.entries(gitbib_data.entries));
-gitbib_data_entries_map.forEach((value, key) => value.ident = key);
-const gitbib_data_entries = Array.from(gitbib_data_entries_map.values());
 
 function sortofMatches(text1, text2) {
   text1 = text1.toLowerCase();
@@ -55,7 +49,7 @@ function sortofMatches(text1, text2) {
 
 function Entries() {
   const [searchText, setSearchText] = useState("");
-  const [entries, setEntries] = useState(gitbib_data_entries);
+  const [entries, setEntries] = useState(gitbib_data);
   const entry_cards = entries.map((entry) => <EntryCard entry={entry}/>);
 
   return <div>
@@ -63,7 +57,7 @@ function Entries() {
       function (event) {
         let newval = event.target.value;
         setSearchText(newval);
-        setEntries(gitbib_data_entries.filter(
+        setEntries(gitbib_data.filter(
             entry => entry['title'] && sortofMatches(newval, entry['title'])))
       }}/>
     {entry_cards}
