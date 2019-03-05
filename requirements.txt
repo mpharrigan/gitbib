@@ -3,3 +3,4 @@ pyyaml
 jinja2
 sqlalchemy
 pyparsing
+networkx
