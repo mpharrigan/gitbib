@@ -103,7 +103,7 @@ class Entry:
     container_title: Optional[ContainerTitle]
     volume: Optional[int]
     issue: Optional[int]
-    page: Optional[int]
+    page: Optional[Tuple[int, int]]
     url: Optional[str]
     doi: Optional[str]
     arxiv: Optional[str]
@@ -229,10 +229,20 @@ def merge_issue(entry) -> int:
         return int(entry.crossref_data['issue'])
 
 
-def merge_page(entry) -> int:
+def merge_page(entry) -> Optional[Tuple[int, int]]:
     # TODO: Tuple[int, int]?
     if entry.crossref_data is not None and 'page' in entry.crossref_data:
-        return int(entry.crossref_data['page'])
+        pages = entry.crossref_data['page'].split('-')
+        if len(pages) == 1:
+            try:
+                p = int(pages[0])
+            except ValueError:
+                return None
+            return p, p
+        elif len(pages) == 2:
+            return int(pages[0]), int(pages[1])
+        else:
+            raise ValueError(pages)
 
 
 def merge_url(entry) -> str:
