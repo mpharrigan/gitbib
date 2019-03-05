@@ -285,50 +285,61 @@ def merge_tags(entry):
     pass
 
 
-# 1. User data
-def main(fns, c, ulog):
-    def _load():
-        for fn in fns:
-            with open(f'{fn}.yaml') as f:
-                for ident, user_data in yaml.load(f).items():
-                    user_data['ident'] = ident
-                    user_data = extract_citations_from_entry(user_data, ident=ident, ulog=ulog)
-                    yield RawEntry(user_data=user_data)
+def _load_user_data(fns, *, ulog):
+    for fn in fns:
+        with open(f'{fn}.yaml') as f:
+            for ident, user_data in yaml.load(f).items():
+                user_data['ident'] = ident
+                user_data = extract_citations_from_entry(user_data, ident=ident, ulog=ulog)
+                yield RawEntry(user_data=user_data)
 
-    entries = list(_load())
+
+def _fetch_data_for_user_spec_id(entry, *, session, ulog):
+    ident = entry.user_data['ident']
+    if 'doi' in entry.user_data:
+        entry.crossref_data = get_and_cache_crossref(doi=entry.user_data['doi'],
+                                                     ulog=ulog, session=session,
+                                                     ident=ident)
+    if 'arxiv' in entry.user_data:
+        entry.arxiv_data = get_and_cache_arxiv(arxivid=entry.user_data['arxiv'],
+                                               ulog=ulog, session=session, ident=ident)
+
+    return entry
+
+
+def _fetch_data_for_fetched_id(entry, *, session, ulog):
+    ident = entry.user_data['ident']
+
+    # 3.1 arxiv -> crossref
+    if entry.arxiv_data is not None:
+        if 'doi' in entry.arxiv_data:
+            doi = entry.arxiv_data['doi']
+            if entry.crossref_data is not None and \
+                    doi.lower() != entry.crossref_data['DOI'].lower():
+                raise ValueError(f"Inconsistent DOIs: {doi} and {entry.crossref_data['DOI']}")
+
+            if entry.crossref_data is None:
+                entry.crossref_data = get_and_cache_crossref(doi=doi,
+                                                             ulog=ulog, session=session,
+                                                             ident=ident)
+
+    # 3.2 crossref -> arxiv (TODO)
+    pass
+
+    return entry
+
+
+def main(fns, c, ulog):
+    # 1. User data
+    entries = list(_load_user_data(fns, ulog=ulog))
 
     # 2. Fetch data given by user-specified ids.
     with c.scoped_session() as session:
-        for entry in entries:
-            ident = entry.user_data['ident']
-            if 'doi' in entry.user_data:
-                entry.crossref_data = get_and_cache_crossref(doi=entry.user_data['doi'],
-                                                             ulog=ulog, session=session,
-                                                             ident=ident)
-            if 'arxiv' in entry.user_data:
-                entry.arxiv_data = get_and_cache_arxiv(arxivid=entry.user_data['arxiv'],
-                                                       ulog=ulog, session=session, ident=ident)
+        entries = [_fetch_data_for_user_spec_id(entry, session=session, ulog=ulog) for entry in entries]
 
     # 3. Fetch data given by fetched ids
     with c.scoped_session() as session:
-        for entry in entries:
-            ident = entry.user_data['ident']
-
-            # 3.1 arxiv -> crossref
-            if entry.arxiv_data is not None:
-                if 'doi' in entry.arxiv_data:
-                    doi = entry.arxiv_data['doi']
-                    if entry.crossref_data is not None and \
-                            doi.lower() != entry.crossref_data['DOI'].lower():
-                        raise ValueError(f"Inconsistent DOIs: {doi} and {entry.crossref_data['DOI']}")
-
-                    if entry.crossref_data is None:
-                        entry.crossref_data = get_and_cache_crossref(doi=doi,
-                                                                     ulog=ulog, session=session,
-                                                                     ident=ident)
-
-            # 3.2 crossref -> arxiv (TODO)
-            pass
+        entries = [_fetch_data_for_fetched_id(entry, session=session, ulog=ulog) for entry in entries]
 
     # 4. Merge data and convert to internal representation
     entries = [Entry(
@@ -381,3 +392,7 @@ def main(fns, c, ulog):
 
     for entry in entries:
         pprint(asdict(entry), width=180)
+
+    with open('quantum.json', 'w') as f:
+        import json
+        json.dump([asdict(entry) for entry in entries], f, indent=2)
