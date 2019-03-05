@@ -1,20 +1,15 @@
-import time
 from dataclasses import dataclass, asdict
 from pprint import pprint
 from typing import Dict, Any, Optional, List, Tuple, Union
-from xml.etree import ElementTree
-from xml.etree.ElementTree import Element
 
 import networkx as nx
-import requests
 import yaml
 from jinja2 import Environment, PackageLoader
 from sqlalchemy.orm.exc import NoResultFound
 
-from gitbib.cache import Cache, Crossref, Arxiv
-from gitbib.command_line import ConsoleLogger
+from gitbib.cache import Crossref, Arxiv
 from gitbib.gitbib import _fetch_crossref, _fetch_arxiv, NoCrossref, NoArxiv, \
-    extract_citations_from_description, extract_citations_from_entry, _container_title_logic, latex_escape, bibtype, \
+    extract_citations_from_entry, _container_title_logic, latex_escape, bibtype, \
     pretty_author_list, bibtex_author_list, bibtex_capitalize, to_isodate, to_prettydate, respace, safe_css, \
     list_of_pdbs, markdownify, yaml_indent
 
