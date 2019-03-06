@@ -401,3 +401,5 @@ def main(fns, c, ulog):
     with open('quantum.json', 'w') as f:
         import json
         json.dump([asdict(entry) for entry in entries], f, indent=2)
+
+    return entries

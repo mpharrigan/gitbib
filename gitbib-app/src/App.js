@@ -1,5 +1,4 @@
-import React, {Component, useState} from 'react';
-import gitbib_data from './quantum.json';
+import React, {Component, useState, useEffect} from 'react';
 import './App.css';
 
 
@@ -73,17 +72,39 @@ function sortofMatches(text1, text2) {
   return text2.includes(text1);
 }
 
+function useFetch(url) {
+  const [data, setData] = useState(null);
+
+  async function fetchData() {
+    const response = await fetch(url);
+    const json = await response.json();
+    setData(json);
+  }
+
+  useEffect(() => {
+    fetchData()
+  }, []);
+  return data
+}
+
 function Entries() {
   const [searchText, setSearchText] = useState("");
-  const [entries, setEntries] = useState(gitbib_data);
+  const [loaded, setLoaded] = useState(false);
+  const [entries, setEntries] = useState([]);
   const entry_cards = entries.map((entry) => <EntryCard key={entry.ident} entry={entry}/>);
+
+  const gitbib_data = useFetch("http://localhost:8888/entries");
+  if (!loaded && gitbib_data) {
+    setEntries(gitbib_data['entries']);
+    setLoaded(true);
+  }
 
   return <div>
     <input type="text" placeholder="Filter" value={searchText} onChange={
       function (event) {
         let newval = event.target.value;
         setSearchText(newval);
-        setEntries(gitbib_data.filter(
+        setEntries(gitbib_data['entries'].filter(
             entry => entry['title'] && sortofMatches(newval, entry['title'])))
       }}/>
     {entry_cards}
