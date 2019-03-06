@@ -11,7 +11,7 @@ from gitbib.cache import Crossref, Arxiv
 from gitbib.gitbib import _fetch_crossref, _fetch_arxiv, NoCrossref, NoArxiv, \
     extract_citations_from_entry, _container_title_logic, latex_escape, bibtype, \
     pretty_author_list, bibtex_author_list, bibtex_capitalize, to_isodate, to_prettydate, respace, safe_css, \
-    list_of_pdbs, markdownify, yaml_indent
+    list_of_pdbs, markdownify, yaml_indent, parse_description
 
 
 def get_and_cache_crossref(doi, *, session, ulog, ident):
@@ -259,7 +259,8 @@ def merge_pdf(entry):
 
 
 def merge_description(entry):
-    pass
+    if entry.user_data is not None and 'description' in entry.user_data:
+        return parse_description(entry.user_data['description'])
 
 
 def merge_cites(entry):

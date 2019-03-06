@@ -48,6 +48,23 @@ function EntryDebugCard(props) {
   )
 }
 
+function Description(props){
+  const desc = props.desc || [];
+  let parts = [];
+  for(let part of desc){
+    if(typeof part === "string"){
+      parts.push(part);
+    }
+    else if(part['i']){
+      parts.push(<a href="#todo">{'['+part['i']+"="+part['n']+']'}</a>);
+    }
+    else if (part['s']){
+      parts.push(<a href={part['href']}>{part['s']}</a>);
+    }
+  }
+  return <p>{parts}</p>
+}
+
 function EntryCard(props) {
   const entry = props.entry;
 
@@ -63,6 +80,8 @@ function EntryCard(props) {
         {entry['issue'] && entry['issue'] + ', '}
         {entry['page'] && entry['page'] + '. '}
       </p>
+
+      <Description desc={entry['description']}/>
     </div>
 
     <EntryDebugCard entry={entry}/>

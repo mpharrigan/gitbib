@@ -140,7 +140,6 @@ def cache(ident, my_meta, *, session, ulog):
                 ulog.error("A biorxiv doi was given for {}, "
                            "but the crossref request failed!".format(ident))
 
-
     ret = {'none': my_meta}
     if crossref is not None:
         ret['doi'] = crossref.data
@@ -256,6 +255,7 @@ def _container_title_logic(ctitles, *, ulog):
         'short': ctitles[-1],
     }
 
+
 def _crossref_internal_rep_helper1(ulog):
     want = {k: lambda x: x
             for k in [
@@ -294,9 +294,10 @@ def _internal_rep_doi(my_meta, their_meta, *, ulog):
     other_keys = their_meta_keys - want_keys
     return _crossref_internal_rep_helper2(my_meta, their_meta, want, want_keys, other_keys)
 
+
 def _internal_rep_biorxiv(my_meta, their_meta, *, ulog):
     want = _crossref_internal_rep_helper1(ulog)
-    want['container-title'] = lambda x: {'full':'bioRxiv', 'short': 'bioRxiv'}
+    want['container-title'] = lambda x: {'full': 'bioRxiv', 'short': 'bioRxiv'}
     their_meta_keys = set(their_meta)
     want_keys = their_meta_keys & set(want.keys())
     other_keys = their_meta_keys - want_keys
@@ -363,33 +364,73 @@ def _stagger(the_list, n_staggers):
     yield from zip(*[the_list[i::n_staggers] for i in range(n_staggers)])
 
 
+def parse_in_text_citation(description):
+    description2 = []
+    # [ident] or [ident=111] NOT [ident](...
+    splits = re.split(IN_TEXT_CITATION_RE, description)
+    i = 0
+    state = 'text'
+    description2 = []
+    while i < len(splits):
+        if state == 'text':
+            description2.append(splits[i])
+            i += 1
+            state = 'ident'
+        elif state == 'ident':
+            ident = splits[i]
+            n = splits[i + 5]
+            if n is not None:
+                n = int(n)
+            description2.append({'i': ident, 'n': n})
+            i += 6
+            state = 'text'
+
+    return description2
+
+
+def parse_in_text_link(description):
+    if not isinstance(description, str):
+        return [description]
+
+    # [text](link) followed by space or punctuation
+    splits = re.split(r'\[(.+?)\]\(([[A-Za-z0-9-_.:/]+)\)(?=[\s?.!])', description)
+    i = 0
+    state = 'text'
+    description2 = []
+    while i < len(splits):
+        if state == 'text':
+            description2.append(splits[i])
+            i += 1
+            state = 'link'
+        elif state == 'link':
+            s = splits[i]
+            href = splits[i + 1]
+            description2.append({'s': s, 'href': href})
+            i += 2
+            state = 'text'
+
+    return description2
+
+
+def parse_description(description):
+    # TODO: paragraphs
+    # splits = re.split(r'\n\n+', my_meta['description'])
+    # return "\n".join(splits)
+
+    description2 = parse_in_text_citation(description)
+    description3 = []
+    for desc_part in description2:
+        description3 += parse_in_text_link(desc_part)
+
+    return description3
+
+
 def _generic_internal_rep(ident, my_meta, *, ulog):
     pdf_path = f'pdfs/{ident}.pdf'
     if os.path.exists(pdf_path):
         my_meta['pdf'] = pdf_path
 
-    # TODO: paragraphs
-    # splits = re.split(r'\n\n+', my_meta['description'])
-    # return "\n".join(splits)
-
-    description = []
-    # [ident] or [ident=111] NOT [ident](...
-    splits = re.split(IN_TEXT_CITATION_RE, my_meta.get('description', ''))
-    for text1, ident, _doi_ident, _arxiv_ident, _normal_ident, _equals_sign, n, text2 in _stagger(splits, 8):
-        description += [text1, {'i': ident, 'n': n}, text2]
-
-    description3 = []
-    for desc_part in description:
-        if not isinstance(desc_part, str):
-            description3 += [desc_part]
-            continue
-
-        # [text](link) followed by space or punctuation
-        splits = re.split(r'\[(.+)\]\(([\w\.\:\/]+)\)(?=[\s\?\.\!])', desc_part)
-        for text1, s, href, text2 in _stagger(splits, 4):
-            description3 += [text1, {'s': s, 'href': href}, text2]
-
-    my_meta['parsed_description'] = description3
+    my_meta['parsed_description'] = parse_description(my_meta.get('description', ''))
     return my_meta
 
 
@@ -554,22 +595,22 @@ def bibtype(key, entries, ulog):
     # https://api.crossref.org/v1/types
     type_mapping = {
         ## Cross-ref
-        #'book-section'
-        #'monograph'
-        #'report'
-        #'book-track'
+        # 'book-section'
+        # 'monograph'
+        # 'report'
+        # 'book-track'
         'journal-article': 'article',
-        #'book-part'
+        # 'book-part'
         'other': 'misc',
         'book': 'book',
-        #'journal-volume'
-        #'book-set'
-        #'reference-entry'
+        # 'journal-volume'
+        # 'book-set'
+        # 'reference-entry'
         'proceedings-article': 'proceedings',
-        #'journal'
-        #'component'
+        # 'journal'
+        # 'component'
         'book-chapter': 'incollection',
-        #'report-series'
+        # 'report-series'
 
         ## Arxiv
         'unpublished': 'unpublished',
@@ -580,8 +621,8 @@ def bibtype(key, entries, ulog):
         ## Other raw bibtex
         'article': 'article',
         'booklet': 'booklet',
-        'inbook': 'inbook', # crossref book-part?
-        'incollection': 'incollection', # crossref book-section?
+        'inbook': 'inbook',  # crossref book-part?
+        'incollection': 'incollection',  # crossref book-section?
         'inproceedings': 'inproceedings',
         'manual': 'manual',
         'mastersthesis': 'mastersthesis',
