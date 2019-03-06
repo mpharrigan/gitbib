@@ -48,27 +48,39 @@ function EntryDebugCard(props) {
   )
 }
 
-function Description(props){
-  const desc = props.desc || [];
+function DescriptionP(props) {
+  const desc = props.desc;
   let parts = [];
-  for(let part of desc){
-    if(typeof part === "string"){
-      parts.push(part);
+  let part_i = 0;
+  for (let part of desc) {
+    if (typeof part === "string") {
+      parts.push(<span key={part_i}>{part}</span>);
+    } else if (part['i']) {
+      let text = '[' + part['i'];
+      if (part['n']) {
+        text += '=' + part['n'];
+      }
+      text += ']';
+      parts.push(<a href={'#' + part['i']} key={part_i}>{text}</a>);
+    } else if (part['s']) {
+      parts.push(<a href={part['href']} key={part_i}>{part['s']}</a>);
+    } else {
+      throw new Error("Unknown desc part");
     }
-    else if(part['i']){
-      parts.push(<a href="#todo">{'['+part['i']+"="+part['n']+']'}</a>);
-    }
-    else if (part['s']){
-      parts.push(<a href={part['href']}>{part['s']}</a>);
-    }
+    part_i += 1;
   }
   return <p>{parts}</p>
+}
+
+function Description(props) {
+  const desc = props.desc || [];
+  return desc.map((x, i) => <DescriptionP desc={x} key={i}/>)
 }
 
 function EntryCard(props) {
   const entry = props.entry;
 
-  return <div className="card">
+  return <div className="card" id={entry['ident']}>
     <div className="card-block">
       <h4 className="card-title">{entry['title']}</h4>
       <h6 className="card-subtitle text-muted"><strong>{entry['ident']}</strong></h6>

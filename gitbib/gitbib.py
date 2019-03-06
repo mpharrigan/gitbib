@@ -412,17 +412,18 @@ def parse_in_text_link(description):
     return description2
 
 
-def parse_description(description):
-    # TODO: paragraphs
-    # splits = re.split(r'\n\n+', my_meta['description'])
-    # return "\n".join(splits)
-
+def _parse_desc_paragraph(description):
     description2 = parse_in_text_citation(description)
     description3 = []
     for desc_part in description2:
         description3 += parse_in_text_link(desc_part)
 
     return description3
+
+
+def parse_description(description):
+    splits = re.split(r'\n\n+', description)
+    return [_parse_desc_paragraph(split) for split in splits]
 
 
 def _generic_internal_rep(ident, my_meta, *, ulog):
