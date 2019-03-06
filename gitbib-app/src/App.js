@@ -5,7 +5,8 @@ import './App.css';
 
 function AuthorList(props) {
   if (props.authors) {
-    const listItems = props.authors.map((author) => <li>{author.family + ', ' + author.given}</li>);
+    const listItems = props.authors.map((author) => <li key={author.family + '-' + author.given}>
+      {author.family + ', ' + author.given}</li>);
     return <ul className="AuthorList">{listItems}</ul>;
   }
   return <ul/>
@@ -23,13 +24,35 @@ function ContainerTitle(props) {
   return <em>{props.entry['container_title']['full_name']} ({props.entry['container_title']['short_name']})</em>
 }
 
+function arb_object_to_str(v) {
+  if (typeof v === 'object' && v !== null) {
+    v = '[' + Object.keys(v).map((k2) => k2 + ": " + arb_object_to_str(v[k2])).join() + ']';
+  }
+
+  return v;
+}
+
+function EntryDebugCard(props) {
+  let list = [];
+  for (let k in props.entry) {
+    let v = arb_object_to_str(props.entry[k]);
+    list.push((<li key={k}>{k + ': ' + v}</li>))
+  }
+  return (
+      <div className="card-block">
+        <ul>{list}</ul>
+      </div>
+  )
+}
+
 function EntryCard(props) {
   const entry = props.entry;
+
   return <div className="card">
     <div className="card-block">
       <h4 className="card-title">{entry['title']}</h4>
       <h6 className="card-subtitle text-muted"><strong>{entry['ident']}</strong></h6>
-      <p className="card-text"><AuthorList authors={entry['authors']}/></p>
+      <AuthorList authors={entry['authors']}/>
       <Dates entry={entry}/>
       <p className="card-text">
         {entry['container_title'] && <ContainerTitle entry={entry}/>}
@@ -38,6 +61,9 @@ function EntryCard(props) {
         {entry['page'] && entry['page'] + '. '}
       </p>
     </div>
+
+    <EntryDebugCard entry={entry}/>
+
   </div>
 }
 
@@ -50,7 +76,7 @@ function sortofMatches(text1, text2) {
 function Entries() {
   const [searchText, setSearchText] = useState("");
   const [entries, setEntries] = useState(gitbib_data);
-  const entry_cards = entries.map((entry) => <EntryCard entry={entry}/>);
+  const entry_cards = entries.map((entry) => <EntryCard key={entry.ident} entry={entry}/>);
 
   return <div>
     <input type="text" placeholder="Filter" value={searchText} onChange={
