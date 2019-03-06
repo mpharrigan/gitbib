@@ -34,8 +34,12 @@ function arb_object_to_str(v) {
 function EntryDebugCard(props) {
   let list = [];
   for (let k in props.entry) {
-    let v = arb_object_to_str(props.entry[k]);
-    list.push((<li key={k}>{k + ': ' + v}</li>))
+    if (['ident', 'title', 'authors'].includes(k)) {
+      // skip keys we know are good-to-go.
+    } else {
+      let v = arb_object_to_str(props.entry[k]);
+      list.push((<li key={k}>{k + ': ' + v}</li>))
+    }
   }
   return (
       <div className="card-block">
