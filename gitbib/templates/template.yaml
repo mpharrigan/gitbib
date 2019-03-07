@@ -2,10 +2,9 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/. #}
 
-{% for ident in list_of_idents[0] -%}
-{% set entry = entries[ident] -%}
+{% for entry in entries -%}
 
-{{ident}}:
+{{entry['ident']}}:
   {% if entry['arxiv'] -%}
   arxiv: "{{entry['arxiv']}}"
   {% endif -%}
@@ -20,6 +19,6 @@
   {% endif -%}
   {% if entry['description'] -%}
   description: |+
-    {{entry['description'] | indent(4)}}
+    {{entry['description'] | yaml_desc | indent(4)}}
   {% endif %}
 {% endfor %}

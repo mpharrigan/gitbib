@@ -1,3 +1,4 @@
+import textwrap
 from dataclasses import dataclass, asdict
 from pprint import pprint
 from typing import Dict, Any, Optional, List, Tuple, Union
@@ -103,7 +104,7 @@ class Entry:
     doi: Optional[str]
     arxiv: Optional[str]
     pdf: Optional[str]
-    description: Optional[str]
+    description: Optional[List[Union[str, Dict]]]
     cites: Optional[List[Citation]]
     tags: Optional[List[str]]
 
@@ -335,6 +336,28 @@ def _fetch_data_for_fetched_id(entry, *, session, ulog):
     return entry
 
 
+def _yaml_desc_paragraph(parts):
+    s = ""
+    for part in parts:
+        if isinstance(part, str):
+            s += part
+        elif 'i' in part:
+            s += '[' + part['i']
+            if part['n'] is not None:
+                s += '=' + str(part['n'])
+            s += ']'
+        elif 's' in part:
+            s += f"[{part['s']}({part['href']})"
+        else:
+            raise ValueError(f"Unknown desc part {part}")
+
+    return s
+
+
+def yaml_desc(desc):
+    return '\n\n'.join(_yaml_desc_paragraph(parts) for parts in desc)
+
+
 def main(fns, c, ulog):
     # 1. User data
     entries = list(_load_user_data(fns, ulog=ulog))
@@ -381,23 +404,27 @@ def main(fns, c, ulog):
     pass
 
     # 7. Print
-    def get_jija_env(entries: List[Entry], *, ulog):
-        env = Environment(loader=PackageLoader('gitbib'), keep_trailing_newline=True)
-        env.filters['latex_escape'] = latex_escape
-        env.filters['bibtype'] = lambda k: bibtype(k, entries, ulog)
-        env.filters['pretty_author_list'] = pretty_author_list
-        env.filters['bibtex_author_list'] = bibtex_author_list
-        env.filters['bibtex_capitalize'] = bibtex_capitalize
-        env.filters['to_isodate'] = to_isodate
-        env.filters['to_prettydate'] = to_prettydate
-        env.filters['respace'] = respace
-        env.filters['safe_css'] = safe_css
-        env.filters['list_of_pdbs'] = list_of_pdbs
-        env.filters['markdownify'] = lambda s: markdownify(s, entries)
-        env.filters['indent'] = yaml_indent
+    env = Environment(loader=PackageLoader('gitbib'), keep_trailing_newline=True)
+    env.filters['latex_escape'] = latex_escape
+    env.filters['bibtype'] = lambda k: bibtype(k, entries, ulog)
+    env.filters['pretty_author_list'] = pretty_author_list
+    env.filters['bibtex_author_list'] = bibtex_author_list
+    env.filters['bibtex_capitalize'] = bibtex_capitalize
+    env.filters['to_isodate'] = to_isodate
+    env.filters['to_prettydate'] = to_prettydate
+    env.filters['respace'] = respace
+    env.filters['safe_css'] = safe_css
+    env.filters['list_of_pdbs'] = list_of_pdbs
+    env.filters['markdownify'] = lambda s: markdownify(s, entries)
+    env.filters['indent'] = yaml_indent
+    env.filters['yaml_desc'] = yaml_desc
 
-    for entry in entries:
-        pprint(asdict(entry), width=180)
+    template = env.get_template(f'template.yaml')
+    with open(f'quantum2.yaml', 'wb') as f:
+        f.write(template.render(
+            fn='quantum',
+            entries=entries,
+        ).encode('utf-8'))
 
     with open('quantum.json', 'w') as f:
         import json
