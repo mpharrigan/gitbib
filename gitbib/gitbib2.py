@@ -1,4 +1,5 @@
 import textwrap
+from collections import defaultdict
 from dataclasses import dataclass, asdict
 from pprint import pprint
 from typing import Dict, Any, Optional, List, Tuple, Union
@@ -107,6 +108,7 @@ class Entry:
     description: Optional[List[Union[str, Dict]]]
     cites: Optional[List[Citation]]
     tags: Optional[List[str]]
+    fn: str
 
 
 def merge_ident(entry: RawEntry):
@@ -292,11 +294,16 @@ def merge_tags(entry):
     pass
 
 
+def merge_fn(entry):
+    return entry.user_data['fn']
+
+
 def _load_user_data(fns, *, ulog):
     for fn in fns:
         with open(f'{fn}.yaml') as f:
             for ident, user_data in yaml.load(f).items():
                 user_data['ident'] = ident
+                user_data['fn'] = fn
                 user_data = extract_citations_from_entry(user_data, ident=ident, ulog=ulog)
                 yield RawEntry(user_data=user_data)
 
@@ -388,6 +395,7 @@ def main(fns, c, ulog):
         description=merge_description(entry),
         cites=merge_cites(entry),
         tags=merge_tags(entry),
+        fn=merge_fn(entry),
     ) for entry in entries]
 
     # 5. Create indices for data
@@ -395,10 +403,12 @@ def main(fns, c, ulog):
     by_ident = {}
     by_arxivid = {}
     cite_network = nx.DiGraph()
+    by_fn = defaultdict(list)
     for entry in entries:
         by_ident[entry.ident] = entry
         by_doi[entry.doi] = entry
         by_arxivid[entry.arxiv] = entry
+        by_fn[entry.fn] += [entry]
 
     # 6. Link
     pass
@@ -420,11 +430,12 @@ def main(fns, c, ulog):
     env.filters['yaml_desc'] = yaml_desc
 
     template = env.get_template(f'template.yaml')
-    with open(f'quantum2.yaml', 'wb') as f:
-        f.write(template.render(
-            fn='quantum',
-            entries=entries,
-        ).encode('utf-8'))
+    for fn in by_fn:
+        with open(f'{fn}.yaml', 'wb') as f:
+            f.write(template.render(
+                fn=fn,
+                entries=by_fn[fn],
+            ).encode('utf-8'))
 
     with open('quantum.json', 'w') as f:
         import json
