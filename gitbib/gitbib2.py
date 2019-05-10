@@ -1,21 +1,18 @@
-import time
-from dataclasses import dataclass, asdict
+from collections import defaultdict
+from dataclasses import dataclass, asdict, astuple
 from pprint import pprint
 from typing import Dict, Any, Optional, List, Tuple, Union
-from xml.etree import ElementTree
-from xml.etree.ElementTree import Element
 
 import networkx as nx
-import requests
 import yaml
 from jinja2 import Environment, PackageLoader
 from sqlalchemy.orm.exc import NoResultFound
 
-from gitbib.cache import Cache, Crossref, Arxiv
-from gitbib.command_line import ConsoleLogger
+from gitbib.cache import Crossref, Arxiv
+from gitbib.description import parse_description, Description
 from gitbib.gitbib import _fetch_crossref, _fetch_arxiv, NoCrossref, NoArxiv, \
-    extract_citations_from_description, extract_citations_from_entry, _container_title_logic, latex_escape, bibtype, \
-    pretty_author_list, bibtex_author_list, bibtex_capitalize, to_isodate, to_prettydate, respace, safe_css, \
+    extract_citations_from_entry, _container_title_logic, latex_escape, bibtype, pretty_author_list, \
+    bibtex_author_list, bibtex_capitalize, to_isodate, to_prettydate, respace, safe_css, \
     list_of_pdbs, markdownify, yaml_indent
 
 
@@ -96,6 +93,7 @@ class Citation:
 @dataclass(frozen=True)
 class Entry:
     ident: str
+    fn: str
     title: str
     authors: List[Author]
     published_online: Optional[DateTuple]
@@ -108,7 +106,7 @@ class Entry:
     doi: Optional[str]
     arxiv: Optional[str]
     pdf: Optional[str]
-    description: Optional[str]
+    description: Optional[Description]
     cites: Optional[List[Citation]]
     tags: Optional[List[str]]
 
@@ -119,6 +117,14 @@ def merge_ident(entry: RawEntry):
     assert isinstance(ident, str)
     assert len(ident) > 0
     return ident
+
+
+def merge_fn(entry: RawEntry) -> str:
+    fn = entry.user_data['fn']
+    assert fn is not None
+    assert isinstance(fn, str)
+    assert len(fn) > 0
+    return fn
 
 
 def merge_title(entry: RawEntry, *, ulog):
@@ -232,7 +238,12 @@ def merge_issue(entry) -> int:
 def merge_page(entry) -> int:
     # TODO: Tuple[int, int]?
     if entry.crossref_data is not None and 'page' in entry.crossref_data:
-        return int(entry.crossref_data['page'])
+        if '-' in entry.crossref_data['page']:
+            return int(entry.crossref_data['page'].split('-')[0])
+        try:
+            return int(entry.crossref_data['page'])
+        except ValueError:
+            return -1
 
 
 def merge_url(entry) -> str:
@@ -246,15 +257,18 @@ def merge_doi(entry) -> str:
 
 
 def merge_arxiv(entry):
-    pass
+    # TODO: arxiv_data should have arxivid
+    if 'arxiv' in entry.user_data:
+        return entry.user_data['arxiv']
 
 
 def merge_pdf(entry):
     pass
 
 
-def merge_description(entry):
-    pass
+def merge_description(entry) -> Description:
+    if 'description' in entry.user_data:
+        return parse_description(entry.user_data['description'])
 
 
 def merge_cites(entry):
@@ -292,6 +306,7 @@ def main(fns, c, ulog):
             with open(f'{fn}.yaml') as f:
                 for ident, user_data in yaml.load(f).items():
                     user_data['ident'] = ident
+                    user_data['fn'] = fn
                     user_data = extract_citations_from_entry(user_data, ident=ident, ulog=ulog)
                     yield RawEntry(user_data=user_data)
 
@@ -320,7 +335,8 @@ def main(fns, c, ulog):
                     doi = entry.arxiv_data['doi']
                     if entry.crossref_data is not None and \
                             doi.lower() != entry.crossref_data['DOI'].lower():
-                        raise ValueError(f"Inconsistent DOIs: {doi} and {entry.crossref_data['DOI']}")
+                        raise ValueError(f"Inconsistent DOIs: "
+                                         f"{doi} and {entry.crossref_data['DOI']}")
 
                     if entry.crossref_data is None:
                         entry.crossref_data = get_and_cache_crossref(doi=doi,
@@ -333,6 +349,7 @@ def main(fns, c, ulog):
     # 4. Merge data and convert to internal representation
     entries = [Entry(
         ident=merge_ident(entry),
+        fn=merge_fn(entry),
         title=merge_title(entry, ulog=ulog),
         authors=merge_authors(entry, ulog=ulog),
         published_online=merge_published_online(entry),
@@ -381,3 +398,60 @@ def main(fns, c, ulog):
 
     for entry in entries:
         pprint(asdict(entry), width=180)
+
+    return entries
+
+
+def _quote(x):
+    return f'"{x}"'
+
+
+def _id(x):
+    return x
+
+
+def _yaml_authors(xs: List[Author]):
+    return '\n' + '\n'.join('    - {}'.format(' '.join(astuple(x))) for x in xs)
+
+
+def _yaml_cites(xs: List[Citation]):
+    return '\n' + '\n'.join('    - {}'.format(x) for x in xs)
+
+
+YAML_FMT = {
+    'title': _quote,
+    'arxiv': _quote,
+    'doi': lambda x: x,
+    'authors': _yaml_authors,
+    'published_online': _id,
+    'published_print': _id,
+    'container_title': _id,
+    'volume': _id,
+    'issue': _id,
+    'page': _id,
+    'url': _id,
+    'pdf': _id,
+    'cites': _yaml_cites,
+    'tags': _id,
+}
+
+
+def to_yaml(entry: Entry):
+    ret = f"{entry.ident}:\n"
+    for field, ffunc in YAML_FMT.items():
+        val = entry.__getattribute__(field)
+        if val is not None:
+            ret += f"  {field}: {ffunc(val)}\n"
+
+    if entry.description is not None:
+        ret += "  description: |+\n" + yaml_indent(entry.description.yaml(), 4)
+
+    return ret
+
+
+def to_yaml_files(entries: List[Entry]):
+    yamls = defaultdict(lambda: "")
+    for entry in entries:
+        yamls[entry.fn] += to_yaml(entry) + '\n\n'
+
+    return yamls

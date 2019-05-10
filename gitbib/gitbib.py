@@ -658,8 +658,7 @@ def _indent_line(line, n_chars):
 
 
 def yaml_indent(s, n_chars):
-    lines = s.splitlines()
-    return lines[0] + '\n' + '\n'.join(_indent_line(line, n_chars) for line in lines[1:])
+    return '\n'.join(_indent_line(line, n_chars) for line in s.splitlines())
 
 
 # Rendering is straightforward application of jinja2. Note that we have
@@ -726,7 +725,7 @@ def resolve_short_description_crossrefs(text, ident, entry, *, ulog):
         if not 'cites' in entry:
             ulog.warn("{} uses short description references for ref {} "
                       "but doesn't have citations listed".format(ident, num))
-            return "(ref. {n})".format(n=num)
+            return "[={n}]".format(n=num)
 
         for cite in entry['cites']:
             if 'num' in cite and 'id' in cite and cite['num'] == int(num):
@@ -734,7 +733,7 @@ def resolve_short_description_crossrefs(text, ident, entry, *, ulog):
 
         ulog.warn("{} uses short description references for ref {} "
                   "but this citation wasn't found in the citation list".format(ident, num))
-        return "(ref. {n})".format(n=num)
+        return "[={n}]".format(n=num)
 
     # [ident] or [ident=111] NOT [ident](...
     text = re.sub(SHORT_IN_TEXT_CITATION_RE, _replace1, text)
