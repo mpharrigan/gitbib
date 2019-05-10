@@ -285,8 +285,8 @@ def merge_tags(entry):
     pass
 
 
-# 1. User data
 def main(fns, c, ulog):
+    # 1. User data
     def _load():
         for fn in fns:
             with open(f'{fn}.yaml') as f:
