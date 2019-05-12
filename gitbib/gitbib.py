@@ -393,7 +393,7 @@ def parse_in_text_link(description):
         return [description]
 
     # [text](link) followed by space or punctuation
-    splits = re.split(r'\[(.+?)\]\(([[A-Za-z0-9-_.:/]+)\)(?=[\s?.!])', description)
+    splits = re.split(r'\[(.+?)\]\(([A-Za-z0-9-_.:/]+)\)(?=[\s?.!])', description)
     i = 0
     state = 'text'
     description2 = []
