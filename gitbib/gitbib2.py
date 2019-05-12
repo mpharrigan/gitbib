@@ -1,26 +1,15 @@
-import textwrap
 from collections import defaultdict
-from dataclasses import dataclass, asdict
-from collections import defaultdict
-from dataclasses import dataclass, asdict, astuple
-from pprint import pprint
-from typing import Dict, Any, Optional, List, Tuple, Union
+from dataclasses import dataclass, asdict, astuple, replace
+from typing import Dict, Any, Optional, List, Tuple, Union, Iterable
 
 import networkx as nx
 import yaml
-from jinja2 import Environment, PackageLoader
 from sqlalchemy.orm.exc import NoResultFound
 
 from gitbib.cache import Crossref, Arxiv
 from gitbib.description import parse_description, Description
-from gitbib.cache import Crossref, Arxiv
-from gitbib.gitbib import _fetch_crossref, _fetch_arxiv, NoCrossref, NoArxiv, \
-    extract_citations_from_entry, _container_title_logic, latex_escape, bibtype, pretty_author_list, \
-    bibtex_author_list, bibtex_capitalize, to_isodate, to_prettydate, respace, safe_css, \
-    list_of_pdbs, markdownify, yaml_indent
-    extract_citations_from_entry, _container_title_logic, latex_escape, bibtype, \
-    pretty_author_list, bibtex_author_list, bibtex_capitalize, to_isodate, to_prettydate, respace, safe_css, \
-    list_of_pdbs, markdownify, yaml_indent, parse_description
+from gitbib.gitbib import _fetch_crossref, _fetch_arxiv, NoCrossref, NoArxiv, extract_citations_from_entry, \
+    _container_title_logic, yaml_indent
 
 
 def get_and_cache_crossref(doi, *, session, ulog, ident):
@@ -293,7 +282,7 @@ def merge_cites(entry):
             cites.append(Citation(
                 target_ident=TargetIdent(ident=ref['DOI'], target_type='doi'),
                 num=None,  # TODO: try to get this from crossref
-                why=None,
+                why='crossref',
             ))
 
     if 'cites' in entry.user_data:
@@ -317,7 +306,6 @@ def _load_user_data(fns, *, ulog):
             for ident, user_data in yaml.load(f).items():
                 user_data['ident'] = ident
                 user_data['fn'] = fn
-                user_data = extract_citations_from_entry(user_data, ident=ident, ulog=ulog)
                 yield RawEntry(user_data=user_data)
 
 
@@ -341,8 +329,7 @@ def _fetch_data_for_fetched_id(entry, *, session, ulog):
     if entry.arxiv_data is not None:
         if 'doi' in entry.arxiv_data:
             doi = entry.arxiv_data['doi']
-            if entry.crossref_data is not None and \
-                    doi.lower() != entry.crossref_data['DOI'].lower():
+            if entry.crossref_data is not None and doi.lower() != entry.crossref_data['DOI'].lower():
                 raise ValueError(f"Inconsistent DOIs: {doi} and {entry.crossref_data['DOI']}")
 
             if entry.crossref_data is None:
@@ -356,26 +343,21 @@ def _fetch_data_for_fetched_id(entry, *, session, ulog):
     return entry
 
 
-def _yaml_desc_paragraph(parts):
-    s = ""
-    for part in parts:
-        if isinstance(part, str):
-            s += part
-        elif 'i' in part:
-            s += '[' + part['i']
-            if part['n'] is not None:
-                s += '=' + str(part['n'])
-            s += ']'
-        elif 's' in part:
-            s += f"[{part['s']}({part['href']})"
+def _link_entry(entry: Entry, by_doi: Dict[str, Entry]) -> Entry:
+    if entry.cites is None:
+        return entry
+
+    new_cites = []
+    for cite in entry.cites:
+        if cite.target_ident.target_type == 'doi' and cite.target_ident.ident in by_doi:
+            new_cite = replace(cite, target_ident=TargetIdent(
+                ident=by_doi[cite.target_ident.ident].ident,
+                target_type='ident',
+            ))
         else:
-            raise ValueError(f"Unknown desc part {part}")
-
-    return s
-
-
-def yaml_desc(desc):
-    return '\n\n'.join(_yaml_desc_paragraph(parts) for parts in desc)
+            new_cite = cite
+        new_cites += [new_cite]
+    return replace(entry, cites=new_cites)
 
 
 def main(fns, c, ulog):
@@ -424,38 +406,14 @@ def main(fns, c, ulog):
         by_fn[entry.fn] += [entry]
 
     # 6. Link
-    pass
+    entries = [_link_entry(entry, by_doi) for entry in entries]
 
-    # 7. Print
-    env = Environment(loader=PackageLoader('gitbib'), keep_trailing_newline=True)
-    env.filters['latex_escape'] = latex_escape
-    env.filters['bibtype'] = lambda k: bibtype(k, entries, ulog)
-    env.filters['pretty_author_list'] = pretty_author_list
-    env.filters['bibtex_author_list'] = bibtex_author_list
-    env.filters['bibtex_capitalize'] = bibtex_capitalize
-    env.filters['to_isodate'] = to_isodate
-    env.filters['to_prettydate'] = to_prettydate
-    env.filters['respace'] = respace
-    env.filters['safe_css'] = safe_css
-    env.filters['list_of_pdbs'] = list_of_pdbs
-    env.filters['markdownify'] = lambda s: markdownify(s, entries)
-    env.filters['indent'] = yaml_indent
-    env.filters['yaml_desc'] = yaml_desc
-
-    template = env.get_template(f'template.yaml')
-    for fn in by_fn:
-        with open(f'{fn}.yaml', 'wb') as f:
-            f.write(template.render(
-                fn=fn,
-                entries=by_fn[fn],
-            ).encode('utf-8'))
-
+    # 7. [WIP] output
     with open('quantum.json', 'w') as f:
         import json
         json.dump([asdict(entry) for entry in entries], f, indent=2)
 
     return entries
-
 
 
 def _quote(x):
@@ -466,12 +424,37 @@ def _id(x):
     return x
 
 
+def _yaml_list(xs: Iterable[str]):
+    return '\n' + '\n'.join('    - {}'.format(x) for x in xs)
+
+
 def _yaml_authors(xs: List[Author]):
-    return '\n' + '\n'.join('    - {}'.format(' '.join(astuple(x))) for x in xs)
+    return _yaml_list(' '.join(astuple(x)) for x in xs)
 
 
 def _yaml_cites(xs: List[Citation]):
-    return '\n' + '\n'.join('    - {}'.format(x) for x in xs)
+    xs = [x for x in xs if x.target_ident.target_type == 'ident']
+    if len(xs) == 0:
+        return None
+
+    # This depends on the implementation details of _yaml_list for indent length :(
+    def _yaml_cite(x: Citation):
+        ret = f'id: {x.target_ident.ident}'
+        if x.num is not None:
+            ret += f'\n      num: {x.num}'
+        if x.why is not None:
+            ret += f'\n      why: {x.why}'
+        return ret
+
+    return _yaml_list(_yaml_cite(x) for x in xs)
+
+
+def _yaml_date(xs: DateTuple):
+    return '-'.join(str(x) for x in xs)
+
+
+def _yaml_container_title(x: ContainerTitle):
+    return x.full_name
 
 
 YAML_FMT = {
@@ -479,9 +462,9 @@ YAML_FMT = {
     'arxiv': _quote,
     'doi': lambda x: x,
     'authors': _yaml_authors,
-    'published_online': _id,
-    'published_print': _id,
-    'container_title': _id,
+    'published_online': _yaml_date,
+    'published_print': _yaml_date,
+    'container_title': _yaml_container_title,
     'volume': _id,
     'issue': _id,
     'page': _id,
@@ -497,7 +480,9 @@ def to_yaml(entry: Entry):
     for field, ffunc in YAML_FMT.items():
         val = entry.__getattribute__(field)
         if val is not None:
-            ret += f"  {field}: {ffunc(val)}\n"
+            val = ffunc(val)
+            if val is not None:
+                ret += f"  {field}: {val}\n"
 
     if entry.description is not None:
         ret += "  description: |+\n" + yaml_indent(entry.description.yaml(), 4)
