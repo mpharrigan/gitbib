@@ -71,7 +71,7 @@ class Description:
     paragraphs: List[Paragraph]
 
     def __repr__(self):
-        return '\n\n'.join(repr(p) for p in self.paragraphs)
+        return repr(self.paragraphs)
 
     # TODO?: This should be a function in YAML_FMT
     def yaml(self):
@@ -79,7 +79,7 @@ class Description:
 
 
 def parse_paragraph(text: str) -> Paragraph:
-    text = re.sub(r"\n", r' ', text)
+    text = re.sub(r'\n', r' ', text)
     parts = []
     # [ident] or [ident=111] NOT [ident](...
     raw_parts = iter(re.split(IN_TEXT_CITATION_RE, text))
