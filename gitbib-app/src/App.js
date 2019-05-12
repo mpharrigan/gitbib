@@ -52,20 +52,20 @@ function DescriptionP(props) {
   const desc = props.desc;
   let parts = [];
   let part_i = 0;
-  for (let part of desc) {
-    if (typeof part === "string") {
-      parts.push(<span key={part_i}>{part}</span>);
-    } else if (part['i']) {
-      let text = '[' + part['i'];
-      if (part['n']) {
-        text += '=' + part['n'];
+  for (let part of desc.parts) {
+    if (part.hasOwnProperty('content')) {
+      parts.push(<span key={part_i}>{part['content']}</span>);
+    } else if (part['ident']) {
+      let text = '[' + part['ident'];
+      if (part['num']) {
+        text += '=' + part['num'];
       }
       text += ']';
-      parts.push(<a href={'#' + part['i']} key={part_i}>{text}</a>);
+      parts.push(<a href={'#' + part['ident']} key={part_i}>{text}</a>);
     } else if (part['s']) {
       parts.push(<a href={part['href']} key={part_i}>{part['s']}</a>);
     } else {
-      throw new Error("Unknown desc part");
+      throw new Error("Unknown desc part: " + JSON.stringify(part));
     }
     part_i += 1;
   }
@@ -73,7 +73,10 @@ function DescriptionP(props) {
 }
 
 function Description(props) {
-  const desc = props.desc || [];
+  if(props.desc == null){
+    return null;
+  }
+  const desc = props.desc.paragraphs || [];
   return desc.map((x, i) => <DescriptionP desc={x} key={i}/>)
 }
 
