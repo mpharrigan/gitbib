@@ -1,6 +1,8 @@
 import textwrap
 from collections import defaultdict
 from dataclasses import dataclass, asdict
+from collections import defaultdict
+from dataclasses import dataclass, asdict, astuple
 from pprint import pprint
 from typing import Dict, Any, Optional, List, Tuple, Union
 
@@ -10,7 +12,12 @@ from jinja2 import Environment, PackageLoader
 from sqlalchemy.orm.exc import NoResultFound
 
 from gitbib.cache import Crossref, Arxiv
+from gitbib.description import parse_description, Description
+from gitbib.cache import Crossref, Arxiv
 from gitbib.gitbib import _fetch_crossref, _fetch_arxiv, NoCrossref, NoArxiv, \
+    extract_citations_from_entry, _container_title_logic, latex_escape, bibtype, pretty_author_list, \
+    bibtex_author_list, bibtex_capitalize, to_isodate, to_prettydate, respace, safe_css, \
+    list_of_pdbs, markdownify, yaml_indent
     extract_citations_from_entry, _container_title_logic, latex_escape, bibtype, \
     pretty_author_list, bibtex_author_list, bibtex_capitalize, to_isodate, to_prettydate, respace, safe_css, \
     list_of_pdbs, markdownify, yaml_indent, parse_description
@@ -93,6 +100,7 @@ class Citation:
 @dataclass(frozen=True)
 class Entry:
     ident: str
+    fn: str
     title: str
     authors: List[Author]
     published_online: Optional[DateTuple]
@@ -105,10 +113,9 @@ class Entry:
     doi: Optional[str]
     arxiv: Optional[str]
     pdf: Optional[str]
-    description: Optional[List[Union[str, Dict]]]
+    description: Optional[Description]
     cites: Optional[List[Citation]]
     tags: Optional[List[str]]
-    fn: str
 
 
 def merge_ident(entry: RawEntry):
@@ -117,6 +124,14 @@ def merge_ident(entry: RawEntry):
     assert isinstance(ident, str)
     assert len(ident) > 0
     return ident
+
+
+def merge_fn(entry: RawEntry) -> str:
+    fn = entry.user_data['fn']
+    assert fn is not None
+    assert isinstance(fn, str)
+    assert len(fn) > 0
+    return fn
 
 
 def merge_title(entry: RawEntry, *, ulog):
@@ -254,15 +269,17 @@ def merge_doi(entry) -> str:
 
 
 def merge_arxiv(entry):
-    pass
+    # TODO: arxiv_data should have arxivid
+    if 'arxiv' in entry.user_data:
+        return entry.user_data['arxiv']
 
 
 def merge_pdf(entry):
     pass
 
 
-def merge_description(entry):
-    if entry.user_data is not None and 'description' in entry.user_data:
+def merge_description(entry) -> Description:
+    if 'description' in entry.user_data:
         return parse_description(entry.user_data['description'])
 
 
@@ -292,10 +309,6 @@ def merge_cites(entry):
 
 def merge_tags(entry):
     pass
-
-
-def merge_fn(entry):
-    return entry.user_data['fn']
 
 
 def _load_user_data(fns, *, ulog):
@@ -380,6 +393,7 @@ def main(fns, c, ulog):
     # 4. Merge data and convert to internal representation
     entries = [Entry(
         ident=merge_ident(entry),
+        fn=merge_fn(entry),
         title=merge_title(entry, ulog=ulog),
         authors=merge_authors(entry, ulog=ulog),
         published_online=merge_published_online(entry),
@@ -395,7 +409,6 @@ def main(fns, c, ulog):
         description=merge_description(entry),
         cites=merge_cites(entry),
         tags=merge_tags(entry),
-        fn=merge_fn(entry),
     ) for entry in entries]
 
     # 5. Create indices for data
@@ -442,3 +455,59 @@ def main(fns, c, ulog):
         json.dump([asdict(entry) for entry in entries], f, indent=2)
 
     return entries
+
+
+
+def _quote(x):
+    return f'"{x}"'
+
+
+def _id(x):
+    return x
+
+
+def _yaml_authors(xs: List[Author]):
+    return '\n' + '\n'.join('    - {}'.format(' '.join(astuple(x))) for x in xs)
+
+
+def _yaml_cites(xs: List[Citation]):
+    return '\n' + '\n'.join('    - {}'.format(x) for x in xs)
+
+
+YAML_FMT = {
+    'title': _quote,
+    'arxiv': _quote,
+    'doi': lambda x: x,
+    'authors': _yaml_authors,
+    'published_online': _id,
+    'published_print': _id,
+    'container_title': _id,
+    'volume': _id,
+    'issue': _id,
+    'page': _id,
+    'url': _id,
+    'pdf': _id,
+    'cites': _yaml_cites,
+    'tags': _id,
+}
+
+
+def to_yaml(entry: Entry):
+    ret = f"{entry.ident}:\n"
+    for field, ffunc in YAML_FMT.items():
+        val = entry.__getattribute__(field)
+        if val is not None:
+            ret += f"  {field}: {ffunc(val)}\n"
+
+    if entry.description is not None:
+        ret += "  description: |+\n" + yaml_indent(entry.description.yaml(), 4)
+
+    return ret
+
+
+def to_yaml_files(entries: List[Entry]):
+    yamls = defaultdict(lambda: "")
+    for entry in entries:
+        yamls[entry.fn] += to_yaml(entry) + '\n\n'
+
+    return yamls
