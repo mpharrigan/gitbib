@@ -1,5 +1,6 @@
 from collections import defaultdict
 from dataclasses import dataclass, asdict, astuple, replace
+from textwrap import TextWrapper
 from typing import Dict, Any, Optional, List, Tuple, Union, Iterable
 
 import networkx as nx
@@ -428,7 +429,24 @@ def _yaml_list(xs: Iterable[str]):
     return '\n' + '\n'.join('    - {}'.format(x) for x in xs)
 
 
+class AuthorWrapper(TextWrapper):
+    def _split_chunks(self, authors: List[Author]):
+        chunks = []
+        for i, author in enumerate(authors):
+            chunk = _quote(' '.join(astuple(author)))
+            if i+1 != len(authors):
+                chunk += ', '
+            chunks += [chunk]
+        return chunks
+
+
 def _yaml_authors(xs: List[Author]):
+    if len(xs) > 7:
+        return '[' + AuthorWrapper(width=80,
+                                   subsequent_indent=" " * len("  authors: ["),
+                                   break_long_words=False) \
+            .fill(xs) + ']'
+
     return _yaml_list(' '.join(astuple(x)) for x in xs)
 
 
