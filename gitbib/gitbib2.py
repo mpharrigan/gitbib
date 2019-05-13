@@ -5,12 +5,12 @@ from typing import Dict, Any, Optional, List, Tuple, Union, Iterable
 
 import networkx as nx
 import yaml
+from matplotlib import pyplot as plt
 from sqlalchemy.orm.exc import NoResultFound
 
 from gitbib.cache import Crossref, Arxiv
 from gitbib.description import parse_description, Description
-from gitbib.gitbib import _fetch_crossref, _fetch_arxiv, NoCrossref, NoArxiv, extract_citations_from_entry, \
-    _container_title_logic, yaml_indent
+from gitbib.gitbib import _fetch_crossref, _fetch_arxiv, NoCrossref, NoArxiv, _container_title_logic, yaml_indent
 
 
 def get_and_cache_crossref(doi, *, session, ulog, ident):
@@ -398,7 +398,6 @@ def main(fns, c, ulog):
     by_doi = {}
     by_ident = {}
     by_arxivid = {}
-    cite_network = nx.DiGraph()
     by_fn = defaultdict(list)
     for entry in entries:
         by_ident[entry.ident] = entry
@@ -407,12 +406,29 @@ def main(fns, c, ulog):
         by_fn[entry.fn] += [entry]
 
     # 6. Link
+    cite_network = nx.DiGraph()
     entries = [_link_entry(entry, by_doi) for entry in entries]
+    for entry in entries:
+        if entry.cites is not None:
+            for cite in entry.cites:
+                t = cite.target_ident
+                if t.target_type not in ['doi', 'arxivid', 'ident']:
+                    raise ValueError(f"Unknown citation target type {t}")
+                if t.target_type == 'doi' and t.ident in by_doi:
+                    cite_network.add_edge(entry.ident, by_doi[t.ident].ident)
+                elif t.target_type == 'arxivid' and t.ident in by_arxivid:
+                    cite_network.add_edge(entry.ident, by_arxivid[t.ident].ident)
+                elif t.target_type == 'ident' and t.ident in by_ident:
+                    cite_network.add_edge(entry.ident, by_ident[t.ident].ident)
 
     # 7. [WIP] output
     with open('quantum.json', 'w') as f:
         import json
         json.dump([asdict(entry) for entry in entries], f, indent=2)
+
+    for con in nx.weakly_connected_components(cite_network):
+        nx.draw_networkx(cite_network.subgraph(con))
+        plt.show()
 
     return entries
 
@@ -434,7 +450,7 @@ class AuthorWrapper(TextWrapper):
         chunks = []
         for i, author in enumerate(authors):
             chunk = _quote(' '.join(astuple(author)))
-            if i+1 != len(authors):
+            if i + 1 != len(authors):
                 chunk += ', '
             chunks += [chunk]
         return chunks
