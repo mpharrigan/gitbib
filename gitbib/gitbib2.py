@@ -461,9 +461,10 @@ class AuthorWrapper(TextWrapper):
 
 def _yaml_authors(xs: List[Author]):
     if len(xs) > 7:
-        return '[' + AuthorWrapper(width=80,
-                                   subsequent_indent=" " * len("  authors: ["),
-                                   break_long_words=False) \
+        return '[\n' + AuthorWrapper(width=80,
+                                     initial_indent=" " * 4,
+                                     subsequent_indent=" " * 4,
+                                     break_long_words=False) \
             .fill(xs) + ']'
 
     return _yaml_list(' '.join(astuple(x)) for x in xs)
