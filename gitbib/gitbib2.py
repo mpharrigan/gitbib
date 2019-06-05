@@ -5,7 +5,6 @@ from typing import Dict, Any, Optional, List, Tuple, Union, Iterable
 
 import networkx as nx
 import yaml
-from matplotlib import pyplot as plt
 from sqlalchemy.orm.exc import NoResultFound
 
 from gitbib.cache import Crossref, Arxiv
@@ -426,9 +425,13 @@ def main(fns, c, ulog):
         import json
         json.dump([asdict(entry) for entry in entries], f, indent=2)
 
-    for con in nx.weakly_connected_components(cite_network):
-        nx.draw_networkx(cite_network.subgraph(con))
-        plt.show()
+    try:
+        from matplotlib import pyplot as plt
+        for con in nx.weakly_connected_components(cite_network):
+            nx.draw_networkx(cite_network.subgraph(con))
+            plt.show()
+    except ImportError:
+        pass
 
     return entries
 
