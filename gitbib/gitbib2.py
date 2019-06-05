@@ -9,7 +9,8 @@ from sqlalchemy.orm.exc import NoResultFound
 
 from gitbib.cache import Crossref, Arxiv
 from gitbib.description import parse_description, Description
-from gitbib.gitbib import _fetch_crossref, _fetch_arxiv, NoCrossref, NoArxiv, _container_title_logic, yaml_indent
+from gitbib.gitbib import _fetch_crossref, _fetch_arxiv, NoCrossref, NoArxiv, \
+    _container_title_logic, yaml_indent
 
 
 def get_and_cache_crossref(doi, *, session, ulog, ident):
@@ -329,7 +330,8 @@ def _fetch_data_for_fetched_id(entry, *, session, ulog):
     if entry.arxiv_data is not None:
         if 'doi' in entry.arxiv_data:
             doi = entry.arxiv_data['doi']
-            if entry.crossref_data is not None and doi.lower() != entry.crossref_data['DOI'].lower():
+            if entry.crossref_data is not None and doi.lower() != entry.crossref_data[
+                'DOI'].lower():
                 raise ValueError(f"Inconsistent DOIs: {doi} and {entry.crossref_data['DOI']}")
 
             if entry.crossref_data is None:
@@ -366,11 +368,13 @@ def main(fns, c, ulog):
 
     # 2. Fetch data given by user-specified ids.
     with c.scoped_session() as session:
-        entries = [_fetch_data_for_user_spec_id(entry, session=session, ulog=ulog) for entry in entries]
+        entries = [_fetch_data_for_user_spec_id(entry, session=session, ulog=ulog) for entry in
+                   entries]
 
     # 3. Fetch data given by fetched ids
     with c.scoped_session() as session:
-        entries = [_fetch_data_for_fetched_id(entry, session=session, ulog=ulog) for entry in entries]
+        entries = [_fetch_data_for_fetched_id(entry, session=session, ulog=ulog) for entry in
+                   entries]
 
     # 4. Merge data and convert to internal representation
     entries = [Entry(
@@ -448,6 +452,15 @@ def _yaml_list(xs: Iterable[str]):
     return '\n' + '\n'.join('    - {}'.format(x) for x in xs)
 
 
+def _yaml_title(x: str):
+    x = _quote(x)
+    if len(x) + len("  title: ") > 82:
+        return TextWrapper(width=80,
+                           subsequent_indent=" " * len('  title: "'),
+                           break_long_words=False).fill(x)
+    return x
+
+
 class AuthorWrapper(TextWrapper):
     def _split_chunks(self, authors: List[Author]):
         chunks = []
@@ -496,7 +509,7 @@ def _yaml_container_title(x: ContainerTitle):
 
 
 YAML_FMT = {
-    'title': _quote,
+    'title': _yaml_title,
     'arxiv': _quote,
     'doi': lambda x: x,
     'authors': _yaml_authors,
