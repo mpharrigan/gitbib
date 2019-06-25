@@ -10,7 +10,9 @@ from sqlalchemy.orm.exc import NoResultFound
 from gitbib.cache import Crossref, Arxiv
 from gitbib.description import parse_description, Description
 from gitbib.gitbib import _fetch_crossref, _fetch_arxiv, NoCrossref, NoArxiv, \
-    _container_title_logic, yaml_indent
+    _container_title_logic, yaml_indent, latex_escape, bibtype, pretty_author_list, \
+    bibtex_author_list, bibtex_capitalize, to_isodate, to_prettydate, respace, safe_css, \
+    list_of_pdbs, markdownify
 
 
 def get_and_cache_crossref(doi, *, session, ulog, ident):
@@ -511,7 +513,7 @@ def _yaml_container_title(x: ContainerTitle):
 YAML_FMT = {
     'title': _yaml_title,
     'arxiv': _quote,
-    'doi': lambda x: x,
+    'doi': _id,
     'authors': _yaml_authors,
     'published_online': _yaml_date,
     'published_print': _yaml_date,
@@ -547,3 +549,51 @@ def to_yaml_files(entries: List[Entry]):
         yamls[entry.fn] += to_yaml(entry) + '\n\n'
 
     return yamls
+
+
+HTML_FMT = {
+    'title': _yaml_title,
+    'arxiv': _quote,
+    'doi': _id,
+    'authors': _yaml_authors,
+    'published_online': _yaml_date,
+    'published_print': _yaml_date,
+    'container_title': _yaml_container_title,
+    'volume': _id,
+    'issue': _id,
+    'page': _id,
+    'url': _id,
+    'pdf': _id,
+    'cites': _yaml_cites,
+    'tags': _id,
+    'description': lambda x: x.html(),
+}
+
+
+def to_html_files(entries: List[Entry]):
+    from jinja2 import Environment, PackageLoader
+    env = Environment(loader=PackageLoader('gitbib'), keep_trailing_newline=True)
+    env.filters['latex_escape'] = latex_escape
+    env.filters['bibtype'] = lambda k: bibtype(k, entries, None)
+    env.filters['pretty_author_list'] = pretty_author_list
+    env.filters['bibtex_author_list'] = bibtex_author_list
+    env.filters['bibtex_capitalize'] = bibtex_capitalize
+    env.filters['to_isodate'] = to_isodate
+    env.filters['to_prettydate'] = to_prettydate
+    env.filters['respace'] = respace
+    env.filters['safe_css'] = safe_css
+    env.filters['list_of_pdbs'] = list_of_pdbs
+    env.filters['markdownify'] = lambda s: markdownify(s, entries)
+    for k, func in HTML_FMT.items():
+        env.filters[k] = func
+
+    template = env.get_template(f'template2.html')
+    default_user_info = {
+        'slugname': 'gitbib',
+        'index_url': 'index.html',
+    }
+    return template.render(
+        entries=entries,
+        all_tags=[],
+        user_info=default_user_info,
+    )

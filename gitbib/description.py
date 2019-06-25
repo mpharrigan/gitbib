@@ -10,6 +10,9 @@ class DescriptionPart:
     def _markdown(self):
         raise NotImplementedError()
 
+    def html(self):
+        raise NotImplementedError()
+
 
 @dataclass
 class Text(DescriptionPart):
@@ -23,6 +26,9 @@ class Text(DescriptionPart):
 
     def yaml(self):
         return self._markdown()
+
+    def html(self):
+        return self.content
 
     def __str__(self):
         return self.content
@@ -40,6 +46,9 @@ class Citation(DescriptionPart):
     def _markdown(self):
         num_str = f'={self.num}' if self.num is not None else ''
         return f'[{self.ident}{num_str}]'
+
+    def html(self):
+        return '<a href="#">' + self._markdown() + '</a>'
 
     def yaml(self):
         return self._markdown()
@@ -62,6 +71,9 @@ class Paragraph(DescriptionPart):
     def yaml(self):
         return textwrap.fill(self._markdown(), width=78)
 
+    def html(self):
+        return '<p>' + ''.join(p.html() for p in self.parts) + '</p>'
+
     def __str__(self):
         return textwrap.fill(self._markdown())
 
@@ -76,6 +88,9 @@ class Description:
     # TODO?: This should be a function in YAML_FMT
     def yaml(self):
         return '\n\n'.join(p.yaml() for p in self.paragraphs)
+
+    def html(self):
+        return '\n'.join(p.html() for p in self.paragraphs)
 
 
 def parse_paragraph(text: str) -> Paragraph:
