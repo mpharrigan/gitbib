@@ -142,8 +142,8 @@
                     <th>Num</th><th>Entry</th><th>Why</th>
                     </tr>
                     {% for cite in entry.cites %}
-                        {% if cite.num %}
                         <tr>
+                        {% if cite.num %}
                         <td>{{ cite.num }}</td>
                         <td><a href="#{{ cite.target_ident.ident | safe_css }}">{{ cite.target_ident.ident }}</a></td>
                         {% else %}
