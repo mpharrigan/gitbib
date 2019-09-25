@@ -12,7 +12,7 @@ from gitbib.description import parse_description, Description
 from gitbib.gitbib import _fetch_crossref, _fetch_arxiv, NoCrossref, NoArxiv, \
     _container_title_logic, yaml_indent, latex_escape, bibtype, pretty_author_list, \
     bibtex_author_list, bibtex_capitalize, to_isodate, to_prettydate, respace, safe_css, \
-    list_of_pdbs, markdownify
+    list_of_pdbs, markdownify, CROSSREF_TO_BIB_TYPE
 
 
 def get_and_cache_crossref(doi, *, session, ulog, ident):
@@ -95,6 +95,7 @@ class Entry:
     fn: str
     title: str
     authors: List[Author]
+    type: str
     published_online: Optional[DateTuple]
     published_print: Optional[DateTuple]
     container_title: Optional[ContainerTitle]
@@ -126,7 +127,7 @@ def merge_fn(entry: RawEntry) -> str:
     return fn
 
 
-def merge_title(entry: RawEntry, *, ulog):
+def merge_title(entry: RawEntry, *, ulog) -> str:
     title = None
     if entry.crossref_data is not None:
         title = entry.crossref_data['title']
@@ -138,7 +139,7 @@ def merge_title(entry: RawEntry, *, ulog):
     if 'title' in entry.user_data:
         if title is not None:
             ulog.warn("Overwriting crossref title for {entry}")
-            title = entry.user_data['title']
+        title = entry.user_data['title']
 
     if entry.arxiv_data is not None:
         arxiv_title = entry.arxiv_data['title']
@@ -150,10 +151,14 @@ def merge_title(entry: RawEntry, *, ulog):
             assert len(arxiv_title) > 0
             title = arxiv_title
 
+    if title is None:
+        ulog.error("No title for {}".format(entry))
+        title = ''
+
     return title
 
 
-def merge_authors(entry, *, ulog):
+def merge_authors(entry, *, ulog) -> List[Author]:
     if entry.crossref_data is not None:
         crossref_authors = entry.crossref_data['author']
         return [Author(given=author['given'],
@@ -178,7 +183,7 @@ def merge_authors(entry, *, ulog):
         author_spec = entry.user_data['author']
         if isinstance(author_spec, str):
             ulog.warn("{}'s `author` field should be a list")
-            return None
+            return []
 
         new_auths = []
         for a in author_spec:
@@ -195,7 +200,17 @@ def merge_authors(entry, *, ulog):
                        family=author['family'])
                 for author in new_auths]
 
-    return None
+    return []
+
+
+def merge_type(entry, *, ulog):
+    if 'type' in entry.user_data:
+        return entry.user_data['type']
+
+    if entry.crossref_data is not None:
+        return entry.crossref_data['type']
+
+    return 'article'
 
 
 def merge_published_online(entry):
@@ -384,6 +399,7 @@ def main(fns, c, ulog):
         fn=merge_fn(entry),
         title=merge_title(entry, ulog=ulog),
         authors=merge_authors(entry, ulog=ulog),
+        type=merge_type(entry, ulog=ulog),
         published_online=merge_published_online(entry),
         published_print=merge_published_print(entry),
         container_title=merge_container_title(entry, ulog=ulog),
@@ -597,3 +613,98 @@ def to_html_files(entries: List[Entry]):
         all_tags=[],
         user_info=default_user_info,
     )
+
+
+def _create_indices(entries):
+    by_doi = {}
+    by_ident = {}
+    by_arxivid = {}
+    by_fn = defaultdict(list)
+    for entry in entries:
+        by_ident[entry.ident] = entry
+        by_doi[entry.doi] = entry
+        by_arxivid[entry.arxiv] = entry
+        by_fn[entry.fn] += [entry]
+
+    return by_doi, by_ident, by_arxivid, by_fn
+
+
+def _bib_title(x: str):
+    return latex_escape(bibtex_capitalize(x))
+
+
+def _bib_authors(xs: List[Author]):
+    return " and ".join(latex_escape(f'{x.family}, {x.given}') for x in xs)
+
+
+def _bib_type(x: str):
+    return CROSSREF_TO_BIB_TYPE[x]
+
+
+BIB_FMT = {
+    'title': _bib_title,
+    'arxiv': _quote,
+    'doi': _id,
+    'authors': _bib_authors,
+    'type': _bib_type,
+    'published_online': _yaml_date,
+    'published_print': _yaml_date,
+    'container_title': _yaml_container_title,
+    'volume': _id,
+    'issue': _id,
+    'page': _id,
+    'url': _id,
+    'pdf': _id,
+    'cites': _yaml_cites,
+    'tags': _id,
+    'description': lambda x: x.html(),
+}
+
+
+def to_bib_files(entries: List[Entry]):
+    from jinja2 import Environment, PackageLoader
+    env = Environment(loader=PackageLoader('gitbib'), keep_trailing_newline=True)
+    for k, func in BIB_FMT.items():
+        env.filters[k] = func
+
+    template = env.get_template(f'template2.bib')
+    _, _, _, by_fn = _create_indices(entries)
+    return {
+        fn: template.render(entries=by_fn[fn])
+        for fn in by_fn.keys()
+    }
+
+
+TEX_FMT = {
+    'ident': latex_escape,
+    'title': _bib_title,
+    'arxiv': _quote,
+    'doi': _id,
+    'authors': _bib_authors,
+    'type': _bib_type,
+    'published_online': _yaml_date,
+    'published_print': _yaml_date,
+    'container_title': _yaml_container_title,
+    'volume': _id,
+    'issue': _id,
+    'page': _id,
+    'url': _id,
+    'pdf': _id,
+    'cites': _yaml_cites,
+    'tags': _id,
+    'description': lambda x: latex_escape(x.yaml()),
+}
+
+
+def to_tex_files(entries: List[Entry]):
+    from jinja2 import Environment, PackageLoader
+    env = Environment(loader=PackageLoader('gitbib'), keep_trailing_newline=True)
+    for k, func in TEX_FMT.items():
+        env.filters[k] = func
+
+    template = env.get_template(f'template2.tex')
+    _, _, _, by_fn = _create_indices(entries)
+    return {
+        fn: template.render(entries=by_fn[fn], fn=fn)
+        for fn in by_fn.keys()
+    }

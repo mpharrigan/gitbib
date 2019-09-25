@@ -1,0 +1,45 @@
+{# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/. #}
+
+{% for entry in entries -%}
+
+@{{ entry.type | type }}{{ '{'+entry.ident }},
+  author    = "{{ entry.authors | authors }}",
+  title     = "{{ entry.title | title }}",
+  {% if entry.booktitle -%}
+  booktitle = "{{ entry.booktitle }}",
+  {% endif -%}
+  {% if entry.published_online -%}
+  year      = "{{ entry.published_online | published_online }}",
+  {% elif entry.published_print -%}
+  year      = "{{entry.published_print | published_print }}",
+  {% endif -%}
+  {% if entry.container_title -%}
+  journal   = "{{entry.container_title | container_title }}",
+  {% endif -%}
+  {% if entry.address -%} {# note: I don't think this is ever given by crossref #}
+  address   = "{{entry.address}}",
+  {% endif -%}
+  volume    = "{{entry.volume}}",
+  number    = "{{entry.issue}}",
+  chapter   = "{{entry.chapter}}",
+  pages     = "{{ entry.page | page }}",
+  {% if entry.note -%}
+  note      = "{{entry.note}}",
+  {% elif entry.arxiv -%}
+  note      = "arXiv:{{ entry.arxiv }}",
+  {% elif entry.biorxiv -%}
+  note      = "bioRxiv:{{ entry.biorxiv }}",
+  {% endif -%}
+  {% if entry.publisher -%}
+  publisher = "{{entry.publisher}}",
+  {% endif -%}
+  {% if not entry.doi and entry.biorxiv -%}
+  doi       = "{{ entry.biorxiv }}",
+  {% else -%}
+  doi       = "{{ entry.doi }}",
+  {% endif %}
+}
+
+{% endfor %}

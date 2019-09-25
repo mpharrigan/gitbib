@@ -591,50 +591,50 @@ def markdownify(text, entries):
     splits = re.split(r'\n\n+', text)
     return "\n".join('<p class="card-text">{}</p>'.format(s) for s in splits)
 
+# https://api.crossref.org/v1/types
+CROSSREF_TO_BIB_TYPE = {
+    ## Cross-ref
+    # 'book-section'
+    # 'monograph'
+    # 'report'
+    # 'book-track'
+    'journal-article': 'article',
+    # 'book-part'
+    'other': 'misc',
+    'book': 'book',
+    # 'journal-volume'
+    # 'book-set'
+    # 'reference-entry'
+    'proceedings-article': 'proceedings',
+    # 'journal'
+    # 'component'
+    'book-chapter': 'incollection',
+    # 'report-series'
+
+    ## Arxiv
+    'unpublished': 'unpublished',
+
+    ## Biorxiv
+    'posted-content': 'unpublished',
+
+    ## Other raw bibtex
+    'article': 'article',
+    'booklet': 'booklet',
+    'inbook': 'inbook',  # crossref book-part?
+    'incollection': 'incollection',  # crossref book-section?
+    'inproceedings': 'inproceedings',
+    'manual': 'manual',
+    'mastersthesis': 'mastersthesis',
+    'misc': 'misc',
+    'phdthesis': 'phdthesis',
+    'proceedings': 'proceedings',
+    'techreport': 'techreport',
+}
 
 def bibtype(key, entries, ulog):
-    # https://api.crossref.org/v1/types
-    type_mapping = {
-        ## Cross-ref
-        # 'book-section'
-        # 'monograph'
-        # 'report'
-        # 'book-track'
-        'journal-article': 'article',
-        # 'book-part'
-        'other': 'misc',
-        'book': 'book',
-        # 'journal-volume'
-        # 'book-set'
-        # 'reference-entry'
-        'proceedings-article': 'proceedings',
-        # 'journal'
-        # 'component'
-        'book-chapter': 'incollection',
-        # 'report-series'
-
-        ## Arxiv
-        'unpublished': 'unpublished',
-
-        ## Biorxiv
-        'posted-content': 'unpublished',
-
-        ## Other raw bibtex
-        'article': 'article',
-        'booklet': 'booklet',
-        'inbook': 'inbook',  # crossref book-part?
-        'incollection': 'incollection',  # crossref book-section?
-        'inproceedings': 'inproceedings',
-        'manual': 'manual',
-        'mastersthesis': 'mastersthesis',
-        'misc': 'misc',
-        'phdthesis': 'phdthesis',
-        'proceedings': 'proceedings',
-        'techreport': 'techreport',
-    }
     s = entries[key].get('type', '')
-    if s in type_mapping:
-        return type_mapping[s]
+    if s in CROSSREF_TO_BIB_TYPE:
+        return CROSSREF_TO_BIB_TYPE[s]
     if str(s).strip() == "":
         ulog.warn("No type specified for {}. Using `article`".format(key))
         return 'article'
