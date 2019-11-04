@@ -1,3 +1,4 @@
+import os
 from collections import defaultdict
 from dataclasses import dataclass, asdict, astuple, replace
 from textwrap import TextWrapper
@@ -282,7 +283,8 @@ def merge_arxiv(entry):
 
 
 def merge_pdf(entry):
-    pass
+    if 'pdf' in entry.user_data:
+        return entry.user_data['pdf']
 
 
 def merge_description(entry) -> Description:
@@ -324,6 +326,11 @@ def _load_user_data(fns, *, ulog):
             for ident, user_data in yaml.load(f).items():
                 user_data['ident'] = ident
                 user_data['fn'] = fn
+
+                pdf_fn = f'pdfs/{ident}.pdf'
+                if os.path.isfile(pdf_fn):
+                    user_data['pdf'] = pdf_fn
+
                 yield RawEntry(user_data=user_data)
 
 
