@@ -574,11 +574,15 @@ def to_yaml_files(entries: List[Entry]):
     return yamls
 
 
+def _html_authors(xs: List[Author]):
+    return "; ".join(f'{x.given} {x.family}' for x in xs)
+
+
 HTML_FMT = {
-    'title': _yaml_title,
-    'arxiv': _quote,
+    'title': _id,
+    'arxiv': _id,
     'doi': _id,
-    'authors': _yaml_authors,
+    'authors': _html_authors,
     'published_online': _yaml_date,
     'published_print': _yaml_date,
     'container_title': _yaml_container_title,
@@ -593,7 +597,7 @@ HTML_FMT = {
 }
 
 
-def to_html_files(entries: List[Entry]):
+def to_html_file(entries: List[Entry]):
     from jinja2 import Environment, PackageLoader
     env = Environment(loader=PackageLoader('gitbib'), keep_trailing_newline=True)
     env.filters['latex_escape'] = latex_escape
@@ -620,6 +624,21 @@ def to_html_files(entries: List[Entry]):
         all_tags=[],
         user_info=default_user_info,
     )
+
+
+def to_html_files(entries: List[Entry]):
+    from jinja2 import Environment, PackageLoader
+    env = Environment(loader=PackageLoader('gitbib'), keep_trailing_newline=True)
+    for k, func in HTML_FMT.items():
+        env.filters[k] = func
+    env.filters['safe_css'] = safe_css
+
+    template = env.get_template(f'template2.html')
+    _, _, _, by_fn = _create_indices(entries)
+    return {
+        fn: template.render(entries=by_fn[fn])
+        for fn in by_fn.keys()
+    }
 
 
 def _create_indices(entries):

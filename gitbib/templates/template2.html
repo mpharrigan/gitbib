@@ -29,78 +29,23 @@
     </style>
 
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.0.0/jquery.min.js"></script>
-    <script>
-        // 0 - all implicitly enabled
-        // 1 - enabled
-        // 2 - hidden
-        var tags = {
-        {% for tag in all_tags -%}
-            '{{ tag }}': 0,
-        {% endfor -%}
-        };
-        var all_tags = true;
-
-        function tag_toggle(name) {
-            if (all_tags) {
-                for (var i in tags) {
-                    tag_disable(i);
-                    tags[i] = 2;
-                }
-                all_tags = false;
-            }
-
-            if (tags[name] === 1) {
-                tag_disable(name);
-                tags[name] = 2;
-            } else if (tags[name] === 2) {
-                tag_enable(name);
-                tags[name] = 1;
-            }
-        }
-
-        function tag_enable(name) {
-            {% for tag in all_tags %}
-                if (name === '{{ tag }}'){
-                    {% for ident in idents_by_tag[tag] %}
-                      $('#{{ ident | safe_css }}').show();
-                    {% endfor %}
-                    $('#{{ tag | safe_css }}').removeClass('tag-default').addClass('tag-primary')
-                }
-            {% endfor %}
-        }
-
-        function tag_disable(name) {
-            {% for tag in all_tags %}
-            if (name === '{{ tag }}'){
-                {% for ident in idents_by_tag[tag] %}
-                $('#{{ ident | safe_css }}').hide();
-                {% endfor -%}
-                $('#{{ tag | safe_css }}').removeClass('tag-primary').addClass('tag-default')
-            }
-            {% endfor %}
-        }
-    </script>
 
   </head>
   <body data-spy="scroll" data-target="#navlist">
     <div class="container">
       <div class="row" style="margin-top: 1rem;">
         <div class="col-xs-12 col-lg-9">
-            <h5><a class="text-muted" href="{{user_info['index_url']}}">
+            <h5><a class="text-muted" href="#">
                 <i class="fa fa-home" aria-hidden="true"></i>
-                {{user_info['slugname']}}
-            </a> |
-            All tags:
-            {% for tag in all_tags %}
-            <span class="tag tag-default" onclick="tag_toggle('{{tag}}')" id="{{tag}}">{{tag}}</span>
-            {% endfor %}
+                gitbib
+            </a>
             </h5>
             {% for entry in entries %}
             <div class="card">
-              <div class="card-block" id="{{entry.ident | safe_css}}">
-                <h4 class="card-title">{{entry['title']}}</h4>
-                <h6 class="card-subtitle text-muted"><strong>{{entry.ident}}</strong></h6>
-                <p class="card-text">{{entry['author'] | pretty_author_list }}</p>
+              <div class="card-block" id="{{ entry.ident | safe_css }}">
+                <h4 class="card-title">{{ entry.title | title }}</h4>
+                <h6 class="card-subtitle text-muted"><strong>{{ entry.ident }}</strong></h6>
+                <p class="card-text">{{ entry.authors | authors }}</p>
                 <p class="card-text">
                   {% if entry.published_online %}
                   {{entry.published_online}} (online)
@@ -113,7 +58,7 @@
                   {% endif %}
                 </p>
                 <p class="card-text">
-                  {% if entry.container_title %}<em>{{entry.container_title['full']}} ({{entry.container_title['short']}})</em>.{% endif %}
+                  {% if entry.container_title %}<em>{{entry.container_title.full_name}} ({{entry.container_title.short_name}})</em>.{% endif %}
                   {% if entry.volume %}{{entry.volume}}, {% endif %}
                   {% if entry.issue %}{{entry.issue}}, {% endif %}
                   {% if entry.page %}{{entry.page}}. {% endif %}
@@ -129,7 +74,7 @@
 
                 {% if entry.pdb %}
                 <h6 class="m-b-0"><strong style="color: #444">PDB codes</strong></h6>
-                <p class="card-text">{{ entry.pdb | list_of_pdbs }}</p>
+                <p class="card-text">{{ entry.pdb }}</p>
                 {% endif %}
 
                 {% if entry.cites %}
