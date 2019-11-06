@@ -7,6 +7,7 @@ from typing import Dict, Any, Optional, List, Tuple, Union, Iterable
 import networkx as nx
 import yaml
 from sqlalchemy.orm.exc import NoResultFound
+from fuzzywuzzy import fuzz
 
 from gitbib.cache import Crossref, Arxiv
 from gitbib.description import parse_description, Description
@@ -60,6 +61,11 @@ class RawEntry:
     user_data: Dict[str, Any]
     crossref_data: Optional[Dict[str, Any]] = None
     arxiv_data: Optional[Dict[str, Any]] = None
+
+    @property
+    def ident(self):
+        return self.user_data.get('ident', self.__str__())
+
 
 
 @dataclass(frozen=True)
@@ -132,25 +138,27 @@ def merge_title(entry: RawEntry, *, ulog) -> str:
     title = None
     if entry.crossref_data is not None:
         title = entry.crossref_data['title']
-        assert len(title) == 1, 'crossref returning multiple titles for {entry}'
+        assert len(title) == 1, f'crossref returning multiple titles for {entry.ident}'
         title = title[0]
         assert isinstance(title, str)
         assert len(title) > 0
 
-    if 'title' in entry.user_data:
-        if title is not None:
-            ulog.warn("Overwriting crossref title for {entry}")
-        title = entry.user_data['title']
 
     if entry.arxiv_data is not None:
         arxiv_title = entry.arxiv_data['title']
         if title is not None:
-            if arxiv_title != title:
-                ulog.warn(f"Titles for {entry} differ: {title} vs {arxiv_title}")
+            if fuzz.ratio(arxiv_title, title)<90:
+                ulog.warn(f"Titles for {entry.ident} differ: {title} vs {arxiv_title}")
         else:
             assert isinstance(arxiv_title, str)
             assert len(arxiv_title) > 0
             title = arxiv_title
+
+    if 'title' in entry.user_data:
+        if title is not None:
+            ulog.warn(f"Using user-specified title for {entry.ident}: "
+                      f"{title} vs {entry.user_data['title']}")
+        title = entry.user_data['title']
 
     if title is None:
         ulog.error("No title for {}".format(entry))
