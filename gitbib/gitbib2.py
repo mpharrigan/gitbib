@@ -1,3 +1,4 @@
+import datetime
 import os
 from collections import defaultdict
 from dataclasses import dataclass, asdict, astuple, replace
@@ -65,7 +66,6 @@ class RawEntry:
     @property
     def ident(self):
         return self.user_data.get('ident', self.__str__())
-
 
 
 @dataclass(frozen=True)
@@ -143,11 +143,10 @@ def merge_title(entry: RawEntry, *, ulog) -> str:
         assert isinstance(title, str)
         assert len(title) > 0
 
-
     if entry.arxiv_data is not None:
         arxiv_title = entry.arxiv_data['title']
         if title is not None:
-            if fuzz.ratio(arxiv_title, title)<90:
+            if fuzz.ratio(arxiv_title, title) < 90:
                 ulog.warn(f"Titles for {entry.ident} differ: {title} vs {arxiv_title}")
         else:
             assert isinstance(arxiv_title, str)
@@ -222,12 +221,33 @@ def merge_type(entry, *, ulog):
     return 'article'
 
 
-def merge_published_online(entry):
+def merge_published_online(entry) -> Optional[DateTuple]:
+    crossref_date = None
+    arxiv_date = None
+
     if entry.crossref_data is not None and 'published-online' in entry.crossref_data:
         crossref_date = entry.crossref_data['published-online']['date-parts']
         assert len(crossref_date) == 1, 'crossref randomly puts a list here'
-        crossref_date = crossref_date[0]
-        return tuple(crossref_date)
+        crossref_date = tuple(crossref_date[0])
+
+    if entry.arxiv_data is not None and 'published' in entry.arxiv_data:
+        arxiv_date = entry.arxiv_data['published']
+        arxiv_date = datetime.datetime.strptime(arxiv_date, '%Y-%m-%dT%H:%M:%SZ').date()
+        arxiv_date = (arxiv_date.year, arxiv_date.month, arxiv_date.day)
+
+    if crossref_date is None and arxiv_date is None:
+        return None
+    elif crossref_date is not None and arxiv_date is not None:
+        if crossref_date == arxiv_date:
+            return crossref_date
+        # judgement call: published online gets first date
+        return min(crossref_date, arxiv_date)
+    elif crossref_date is not None:
+        return crossref_date
+    elif arxiv_date is not None:
+        return arxiv_date
+
+    raise ValueError()
 
 
 def merge_published_print(entry):
