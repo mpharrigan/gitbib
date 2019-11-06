@@ -530,6 +530,8 @@ def _yaml_date(xs: DateTuple):
 
 
 def _yaml_container_title(x: ContainerTitle):
+    if ':' in x.full_name:
+        return _quote(x.full_name)
     return x.full_name
 
 
