@@ -250,9 +250,15 @@ def _container_title_logic(ctitles, *, ulog):
                     'short': ABBREVS[attempt],
                 }
     ulog.warn("Couldn't find a journal abbreviation for {}".format(ctitles))
+
+    if len(ctitles) > 1:
+        return {
+            'full': ctitles[0],
+            'short': ctitles[-1],
+        }
     return {
         'full': ctitles[0],
-        'short': ctitles[-1],
+        'short': None,
     }
 
 
@@ -306,8 +312,9 @@ def _internal_rep_biorxiv(my_meta, their_meta, *, ulog):
 
 def _internal_rep_arxiv(my_meta, their_meta, *, ulog):
     new_their_meta = {k: v for k, v in their_meta.items() if k in ['title']}
-    new_their_meta['published-online'] = (datetime.datetime.strptime(their_meta['published'], '%Y-%m-%dT%H:%M:%SZ')
-                                          .date())
+    new_their_meta['published-online'] = (
+        datetime.datetime.strptime(their_meta['published'], '%Y-%m-%dT%H:%M:%SZ')
+        .date())
     new_their_meta['abstract'] = their_meta['summary']
     authors = []
     for a in their_meta['authors']:
@@ -571,7 +578,8 @@ def markdownify(text, entries):
             else:
                 return '[{i}]'.format(i=ident)
         if n is not None:
-            return '<a href="#{i_css}">{i} (ref. {n})</a>'.format(i_css=safe_css(ident), i=ident, n=n)
+            return '<a href="#{i_css}">{i} (ref. {n})</a>'.format(i_css=safe_css(ident), i=ident,
+                                                                  n=n)
         else:
             return '<a href="#{i_css}">{i}</a>'.format(i_css=safe_css(ident), i=ident)
 
@@ -590,6 +598,7 @@ def markdownify(text, entries):
 
     splits = re.split(r'\n\n+', text)
     return "\n".join('<p class="card-text">{}</p>'.format(s) for s in splits)
+
 
 # https://api.crossref.org/v1/types
 CROSSREF_TO_BIB_TYPE = {
@@ -631,6 +640,7 @@ CROSSREF_TO_BIB_TYPE = {
     'techreport': 'techreport',
 }
 
+
 def bibtype(key, entries, ulog):
     s = entries[key].get('type', '')
     if s in CROSSREF_TO_BIB_TYPE:
@@ -653,28 +663,38 @@ def latex_escape(s):
             }
     accents = dict([
         # Grave accents
-        (u"à", "\\`a"), (u"è", "\\`e"), (u"ì", "\\`\\i"), (u"ò", "\\`o"), (u"ù", "\\`u"), (u"ỳ", "\\`y"),
-        (u"À", "\\`A"), (u"È", "\\`E"), (u"Ì", "\\`\\I"), (u"Ò", "\\`O"), (u"Ù", "\\`U"), (u"Ỳ", "\\`Y"),
+        (u"à", "\\`a"), (u"è", "\\`e"), (u"ì", "\\`\\i"), (u"ò", "\\`o"), (u"ù", "\\`u"),
+        (u"ỳ", "\\`y"),
+        (u"À", "\\`A"), (u"È", "\\`E"), (u"Ì", "\\`\\I"), (u"Ò", "\\`O"), (u"Ù", "\\`U"),
+        (u"Ỳ", "\\`Y"),
         (u"á", "\\'a"),
         # Acute accent
-        (u"é", "\\'e"), (u"í", "\\'\\i"), (u"ó", "\\'o"), (u"ú", "\\'u"), (u"ý", "\\'y"), (u"Á", "\\'A"),
-        (u"É", "\\'E"), (u"Í", "\\'\\I"), (u"Ó", "\\'O"), (u"Ú", "\\'U"), (u"Ý", "\\'Y"), (u"â", "\\^a"),
+        (u"é", "\\'e"), (u"í", "\\'\\i"), (u"ó", "\\'o"), (u"ú", "\\'u"), (u"ý", "\\'y"),
+        (u"Á", "\\'A"),
+        (u"É", "\\'E"), (u"Í", "\\'\\I"), (u"Ó", "\\'O"), (u"Ú", "\\'U"), (u"Ý", "\\'Y"),
+        (u"â", "\\^a"),
         # Circumflex
-        (u"ê", "\\^e"), (u"î", "\\^\\i"), (u"ô", "\\^o"), (u"û", "\\^u"), (u"ŷ", "\\^y"), (u"Â", "\\^A"),
-        (u"Ê", "\\^E"), (u"Î", "\\^\\I"), (u"Ô", "\\^O"), (u"Û", "\\^U"), (u"Ŷ", "\\^Y"), (u"ä", "\\\"a"),
+        (u"ê", "\\^e"), (u"î", "\\^\\i"), (u"ô", "\\^o"), (u"û", "\\^u"), (u"ŷ", "\\^y"),
+        (u"Â", "\\^A"),
+        (u"Ê", "\\^E"), (u"Î", "\\^\\I"), (u"Ô", "\\^O"), (u"Û", "\\^U"), (u"Ŷ", "\\^Y"),
+        (u"ä", "\\\"a"),
         # Umlaut or dieresis
-        (u"ë", "\\\"e"), (u"ï", "\\\"\\i"), (u"ö", "\\\"o"), (u"ü", "\\\"u"), (u"ÿ", "\\\"y"), (u"Ä", "\\\"A"),
-        (u"Ë", "\\\"E"), (u"Ï", "\\\"\\I"), (u"Ö", "\\\"O"), (u"Ü", "\\\"U"), (u"Ÿ", "\\\"Y"), (u"ç", "\\c{c}"),
+        (u"ë", "\\\"e"), (u"ï", "\\\"\\i"), (u"ö", "\\\"o"), (u"ü", "\\\"u"), (u"ÿ", "\\\"y"),
+        (u"Ä", "\\\"A"),
+        (u"Ë", "\\\"E"), (u"Ï", "\\\"\\I"), (u"Ö", "\\\"O"), (u"Ü", "\\\"U"), (u"Ÿ", "\\\"Y"),
+        (u"ç", "\\c{c}"),
         # Cedilla
         (u"Ç", "\\c{C}"), (u"œ", "{\\oe}"),
         # Ligatures
-        (u"Œ", "{\\OE}"), (u"æ", "{\\ae}"), (u"Æ", "{\\AE}"), (u"å", "{\\aa}"), (u"Å", "{\\AA}"), (u"–", "--"),
+        (u"Œ", "{\\OE}"), (u"æ", "{\\ae}"), (u"Æ", "{\\AE}"), (u"å", "{\\aa}"), (u"Å", "{\\AA}"),
+        (u"–", "--"),
         # Dashes
         (u"—", "---"), (u"ø", "{\\o}"),
         # Misc latin-1 letters
         (u"Ø", "{\\O}"), (u"ß", "{\\ss}"), (u"¡", "{!`}"), (u"¿", "{?`}"), (u"\\", "\\\\"),
         # Characters that should be quoted
-        (u"~", "\\~"), (u"&", "\\&"), (u"$", "\\$"), (u"{", "\\{"), (u"}", "\\}"), (u"%", "\\%"), (u"#", "\\#"),
+        (u"~", "\\~"), (u"&", "\\&"), (u"$", "\\$"), (u"{", "\\{"), (u"}", "\\}"), (u"%", "\\%"),
+        (u"#", "\\#"),
         (u"_", "\\_"), (u"≥", "$\\ge$"),
         # Math operators
         (u"≤", "$\\le$"), (u"≠", "$\\neq$"), (u"©", "\copyright"),
@@ -688,7 +708,8 @@ def latex_escape(s):
         accents[k] = "{%s}" % accents[k]
     conv.update(accents)
 
-    regex = re.compile('|'.join(re.escape(key) for key in sorted(conv.keys(), key=lambda item: - len(item))))
+    regex = re.compile(
+        '|'.join(re.escape(key) for key in sorted(conv.keys(), key=lambda item: - len(item))))
     return regex.sub(lambda match: conv[match.group()], s)
 
 
@@ -1057,7 +1078,8 @@ class Gitbib:
                 continue
             fn = out_spec['fn']
             if not re.match(r'[\w\-\.]+$', fn):
-                ulog.error("Please use a filename that is only alphanumeric characters. Not {}".format(fn))
+                ulog.error(
+                    "Please use a filename that is only alphanumeric characters. Not {}".format(fn))
                 continue
             if fn in fns:
                 ulog.error("Duplicate output filename! {}".format(fn))
@@ -1081,7 +1103,8 @@ class Gitbib:
             list_of_idents = [idents]
             if out_type in ['all']:
                 if 'include_descendants' in out_spec:
-                    ulog.warn("`include_descendants` option is ignored for output type `{}`".format(out_type))
+                    ulog.warn("`include_descendants` option is ignored for output type `{}`".format(
+                        out_type))
             else:
                 include_descendants = out_spec.get('include_descendants', False)
                 if include_descendants:
@@ -1089,8 +1112,11 @@ class Gitbib:
 
             if len(idents) > 0:
                 for ofmt in out_formats:
-                    yield "{}.{}".format(fn, ofmt), self.out_render_formats[ofmt], Renderfunc(fn, ofmt, list_of_idents,
-                                                                                              self.entries, ulog=ulog)
+                    yield "{}.{}".format(fn, ofmt), self.out_render_formats[ofmt], Renderfunc(fn,
+                                                                                              ofmt,
+                                                                                              list_of_idents,
+                                                                                              self.entries,
+                                                                                              ulog=ulog)
             else:
                 ulog.warn("No entries matched the specification for {}".format(fn))
 

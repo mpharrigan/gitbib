@@ -48,17 +48,17 @@
                 <p class="card-text">{{ entry.authors | authors }}</p>
                 <p class="card-text">
                   {% if entry.published_online %}
-                  {{entry.published_online}} (online)
+                  {{entry.published_online | published_online}} (online)
                   {% endif %}
                   {% if entry.published_online and entry.published_print %}
                   &ndash;
                   {% endif %}
                   {% if entry.published_print %}
-                  {{entry.published_print}} (print)
+                  {{entry.published_print | published_print}} (print)
                   {% endif %}
                 </p>
                 <p class="card-text">
-                  {% if entry.container_title %}<em>{{entry.container_title.full_name}} ({{entry.container_title.short_name}})</em>.{% endif %}
+                  {% if entry.container_title %}{{entry.container_title | container_title}}{% endif %}
                   {% if entry.volume %}{{entry.volume}}, {% endif %}
                   {% if entry.issue %}{{entry.issue}}, {% endif %}
                   {% if entry.page %}{{entry.page}}. {% endif %}

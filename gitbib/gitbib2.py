@@ -608,14 +608,34 @@ def _html_authors(xs: List[Author]):
     return "; ".join(f'{x.given} {x.family}' for x in xs)
 
 
+def _html_date(xs: DateTuple):
+    return '-'.join(str(x) for x in xs)
+
+
+def _html_container_title(x: ContainerTitle):
+    if x.full_name is not None:
+        primary = x.full_name
+        if x.short_name is not None:
+            secondary = f' ({x.short_name})'
+        else:
+            secondary = ''
+    elif x.short_name is not None:
+        primary = x.short_name
+        secondary = ''
+    else:
+        return None
+
+    return f'<em>{primary}{secondary}</em>'
+
+
 HTML_FMT = {
     'title': _id,
     'arxiv': _id,
     'doi': _id,
     'authors': _html_authors,
-    'published_online': _yaml_date,
-    'published_print': _yaml_date,
-    'container_title': _yaml_container_title,
+    'published_online': _html_date,
+    'published_print': _html_date,
+    'container_title': _html_container_title,
     'volume': _id,
     'issue': _id,
     'page': _id,
