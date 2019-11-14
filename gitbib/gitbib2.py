@@ -716,10 +716,22 @@ def _create_indices(entries):
     by_ident = {}
     by_arxivid = {}
     by_fn = defaultdict(list)
+
+    def add_with_check(d, k, e, dname):
+        if k is None:
+            return
+        if k in d:
+            other_e = d[k]
+            print(f"{k} already in {dname}: "
+                  f"Trying to add {e.ident} in {e.fn}. "
+                  f"Found {other_e.ident} in {other_e.fn}")
+            return
+        d[k] = e
+
     for entry in entries:
-        by_ident[entry.ident] = entry
-        by_doi[entry.doi] = entry
-        by_arxivid[entry.arxiv] = entry
+        add_with_check(by_ident, entry.ident, entry, 'by_ident')
+        add_with_check(by_doi, entry.doi, entry, 'by_doi')
+        add_with_check(by_arxivid, entry.arxiv, entry, 'by_arxivid')
         by_fn[entry.fn] += [entry]
 
     return by_doi, by_ident, by_arxivid, by_fn
