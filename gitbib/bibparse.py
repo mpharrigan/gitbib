@@ -4,15 +4,18 @@ Matthew Harrigan
 (c) 2016, MIT License
 """
 
-from pyparsing import CaselessKeyword as kwd
-from pyparsing import QuotedString, Word, alphanums, Suppress, OneOrMore, nums, \
-    Group, Optional, ZeroOrMore, alphas, alphas8bit, delimitedList, nestedExpr, printables, ParseResults, Dict
 import string
-from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
 import sys
-import yaml
+from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
 
-entry_type = kwd("article") | kwd("unpublished") | kwd("incollection") | kwd("misc") | kwd("book")
+import yaml
+from pyparsing import CaselessKeyword as kwd
+from pyparsing import Word, alphanums, Suppress, OneOrMore, nums, Group, Optional, ZeroOrMore, \
+    alphas, alphas8bit, delimitedList, nestedExpr, ParseResults
+
+entry_type = (kwd("article") | kwd("unpublished") | kwd("incollection")
+              | kwd("misc") | kwd("book") | kwd("inproceedings")
+              | kwd("phdthesis") | kwd("techreport"))
 cite_key = Word(alphanums + ":/._-")
 
 LCURLY = Suppress('{')
@@ -51,8 +54,10 @@ entry_item = (title_field | author_field | journal_field | year_field
               | Suppress(other_field))
 
 entry_item_list = Group(ZeroOrMore(entry_item + Suppress(',')) + Optional(entry_item))
-entry = Group(Suppress('@') + entry_type + Suppress('{') + cite_key + Suppress(',') + entry_item_list + Suppress('}'))
+entry = Group(Suppress('@') + entry_type + Suppress('{') + cite_key + Suppress(
+    ',') + entry_item_list + Suppress('}'))
 Entries = OneOrMore(entry)
+
 
 def _to_python(x):
     if isinstance(x, ParseResults):
@@ -61,6 +66,7 @@ def _to_python(x):
         return int(x)
     except ValueError:
         return x
+
 
 def entries_to_python(entries):
     for type, key, fields in entries:
@@ -71,7 +77,7 @@ def entries_to_python(entries):
 Entries.setParseAction(entries_to_python)
 
 
-def _doi_only(fields):
+def doi_only(fields):
     if 'doi' in fields:
         return {'doi': fields['doi']}
     else:
@@ -93,7 +99,7 @@ def main():
     entries = parse_bib_file(args.bib_fn)
 
     if args.doi_only:
-        entries = {key: _doi_only(fields) for key, fields in entries.items()}
+        entries = {key: doi_only(fields) for key, fields in entries.items()}
 
     yaml.dump(entries, sys.stdout, default_flow_style=False)
 
