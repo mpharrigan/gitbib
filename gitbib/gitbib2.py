@@ -118,7 +118,7 @@ class Entry:
     tags: Optional[List[str]]
 
 
-def merge_ident(entry: RawEntry):
+def merge_ident(entry: RawEntry) -> str:
     ident = entry.user_data['ident']
     assert ident is not None
     assert isinstance(ident, str)
@@ -138,10 +138,15 @@ def merge_title(entry: RawEntry, *, ulog) -> str:
     title = None
     if entry.crossref_data is not None:
         title = entry.crossref_data['title']
-        assert len(title) == 1, f'crossref returning multiple titles for {entry.ident}'
-        title = title[0]
-        assert isinstance(title, str)
-        assert len(title) > 0
+        if len(title) > 1:
+            print(f"Crossref has returned multiple titles for {entry.ident}: {title}")
+        if len(title) == 0:
+            print(f"Crossref has returned no title for {entry.ident}")
+            title = None
+        else:
+            title = title[0]
+            assert isinstance(title, str)
+            assert len(title) > 0
 
     if entry.arxiv_data is not None:
         arxiv_title = entry.arxiv_data['title']
@@ -160,17 +165,17 @@ def merge_title(entry: RawEntry, *, ulog) -> str:
         title = entry.user_data['title']
 
     if title is None:
-        ulog.error("No title for {}".format(entry))
+        ulog.error(f"No title for {entry.ident}")
         title = ''
 
     return title
 
 
 def merge_authors(entry, *, ulog) -> List[Author]:
-    if entry.crossref_data is not None:
+    if entry.crossref_data is not None and 'author' in entry.crossref_data:
         crossref_authors = entry.crossref_data['author']
-        return [Author(given=author['given'],
-                       family=author['family'])
+        return [Author(given=author.get('given', ''),
+                       family=author.get('family', ''))
                 for author in crossref_authors]
 
     if entry.arxiv_data is not None:
@@ -211,7 +216,7 @@ def merge_authors(entry, *, ulog) -> List[Author]:
     return []
 
 
-def merge_type(entry, *, ulog):
+def merge_type(entry, *, ulog) -> str:
     if 'type' in entry.user_data:
         return entry.user_data['type']
 
@@ -250,7 +255,7 @@ def merge_published_online(entry) -> Optional[DateTuple]:
     raise ValueError()
 
 
-def merge_published_print(entry):
+def merge_published_print(entry) -> Optional[DateTuple]:
     if entry.crossref_data is not None and 'published-print' in entry.crossref_data:
         crossref_date = entry.crossref_data['published-print']['date-parts']
         assert len(crossref_date) == 1, 'crossref randomly puts a list here'
@@ -258,9 +263,11 @@ def merge_published_print(entry):
         return tuple(crossref_date)
 
 
-def merge_container_title(entry, *, ulog):
+def merge_container_title(entry, *, ulog) -> Optional[ContainerTitle]:
     if entry.crossref_data is not None and 'container-title' in entry.crossref_data:
         crossref_ctitles = entry.crossref_data['container-title']
+        if len(crossref_ctitles) < 1:
+            return None
         ctitles_dict = _container_title_logic(crossref_ctitles, ulog=ulog)
         return ContainerTitle(
             full_name=ctitles_dict['full'],
@@ -268,18 +275,27 @@ def merge_container_title(entry, *, ulog):
         )
 
 
-def merge_volume(entry) -> int:
+def merge_volume(entry) -> Optional[int]:
     if entry.crossref_data is not None and 'volume' in entry.crossref_data:
-        return int(entry.crossref_data['volume'])
+        try:
+            return int(entry.crossref_data['volume'])
+        except ValueError as e:
+            print(f"Unknown volume {e}")
+            return None
 
 
-def merge_issue(entry) -> int:
+def merge_issue(entry) -> Optional[int]:
     if entry.crossref_data is not None and 'issue' in entry.crossref_data:
-        return int(entry.crossref_data['issue'])
+        if '-' in entry.crossref_data['issue']:
+            return int(entry.crossref_data['issue'].split('-')[0])
+        try:
+            return int(entry.crossref_data['issue'])
+        except ValueError as e:
+            print(f"Unknown issue {e}")
+            return None
 
 
 def merge_page(entry) -> Optional[Tuple[int, int]]:
-    # TODO: Tuple[int, int]?
     if entry.crossref_data is not None and 'page' in entry.crossref_data:
         pages = entry.crossref_data['page'].split('-')
         if len(pages) == 1:
@@ -289,38 +305,42 @@ def merge_page(entry) -> Optional[Tuple[int, int]]:
                 return None
             return p, p
         elif len(pages) == 2:
-            return int(pages[0]), int(pages[1])
+            try:
+                return int(pages[0]), int(pages[1])
+            except ValueError as e:
+                print(f"Unknown pages {e}")
+                return None
         else:
             raise ValueError(pages)
 
 
-def merge_url(entry) -> str:
+def merge_url(entry) -> Optional[str]:
     if entry.crossref_data is not None and 'url' in entry.crossref_data:
         return entry.crossref_data['url']
 
 
-def merge_doi(entry) -> str:
+def merge_doi(entry) -> Optional[str]:
     if entry.crossref_data is not None and 'DOI' in entry.crossref_data:
         return entry.crossref_data['DOI']
 
 
-def merge_arxiv(entry):
+def merge_arxiv(entry) -> Optional[str]:
     # TODO: arxiv_data should have arxivid
     if 'arxiv' in entry.user_data:
         return entry.user_data['arxiv']
 
 
-def merge_pdf(entry):
+def merge_pdf(entry) -> Optional[str]:
     if 'pdf' in entry.user_data:
         return entry.user_data['pdf']
 
 
-def merge_description(entry) -> Description:
+def merge_description(entry) -> Optional[Description]:
     if 'description' in entry.user_data:
         return parse_description(entry.user_data['description'])
 
 
-def merge_cites(entry):
+def merge_cites(entry) -> List[Citation]:
     cites = []
 
     if entry.crossref_data is not None and 'reference' in entry.crossref_data:
