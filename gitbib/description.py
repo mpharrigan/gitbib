@@ -3,7 +3,7 @@ import textwrap
 from dataclasses import dataclass
 from typing import List, Optional
 
-from gitbib.gitbib import IN_TEXT_CITATION_RE, SHORT_IN_TEXT_CITATION_RE
+from gitbib.gitbib import IN_TEXT_CITATION_RE, SHORT_IN_TEXT_CITATION_RE, safe_css
 
 
 class DescriptionPart:
@@ -48,7 +48,7 @@ class Citation(DescriptionPart):
         return f'[{self.ident}{num_str}]'
 
     def html(self):
-        return '<a href="#">' + self._markdown() + '</a>'
+        return f'<a href="#{safe_css(self.ident)}">' + self._markdown() + '</a>'
 
     def yaml(self):
         return self._markdown()
