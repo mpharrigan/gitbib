@@ -65,7 +65,7 @@
                   {% if entry.url %}<a href="{{entry.url}}">{{entry.url}}</a>{% endif %}
                   {% if entry.doi %}<a href="https://dx.doi.org/{{entry.doi}}">doi:{{entry.doi}}</a>{% endif %}
                   {% if entry.arxiv %}<a href="https://arxiv.org/abs/{{entry.arxiv}}">arxiv:{{entry.arxiv}}</a>{% endif %}
-                  {% if entry.pdf %}<a href="{{entry.pdf}}">[pdf]</a>{% endif %}
+                  {% if entry.pdf %}<a href="../{{entry.pdf}}">[pdf]</a>{% endif %}
                 </p>
                 {% if entry.description %}
                 <h6 class="m-b-0"><strong style="color: #444">Description</strong></h6>
