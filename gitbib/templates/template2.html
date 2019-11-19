@@ -40,6 +40,7 @@
                 gitbib
             </a>
             </h5>
+            {% for entries in [entries1, entries2] %}
             {% for entry in entries %}
             <div class="card">
               <div class="card-block" id="{{ entry.ident | safe_css }}">
@@ -110,15 +111,20 @@
               </div>
             </div>
             {% endfor %}
+            <hr style="margin-bottom: 2rem; border-top: 3px solid rgba(0,0,0,.3)"/>
+            {% endfor %}
         </div>
         <div class="col-xs-12 col-lg-3">
           <h4>Items</h4>
           <div id="navlist">
             <ul class="nav">
+              {% for entries in [entries1, entries2] %}
               {% for entry in entries %}
               <li class="nav-item">
                 <a class="nav-link" href="#{{entry.ident | safe_css}}">{{entry.ident}}</a>
               </li>
+            {% endfor %}
+            <hr />
             {% endfor %}
             </ul>
           </div>

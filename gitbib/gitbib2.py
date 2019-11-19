@@ -11,7 +11,7 @@ from sqlalchemy.orm.exc import NoResultFound
 from fuzzywuzzy import fuzz
 
 from gitbib.cache import Crossref, Arxiv
-from gitbib.description import parse_description, Description
+from gitbib.description import parse_description, Description, Citation as DescriptionCitation
 from gitbib.gitbib import _fetch_crossref, _fetch_arxiv, NoCrossref, NoArxiv, \
     _container_title_logic, yaml_indent, latex_escape, bibtype, pretty_author_list, \
     bibtex_author_list, bibtex_capitalize, to_isodate, to_prettydate, respace, safe_css, \
@@ -114,8 +114,8 @@ class Entry:
     arxiv: Optional[str]
     pdf: Optional[str]
     description: Optional[Description]
-    cites: Optional[List[Citation]]
-    tags: Optional[List[str]]
+    cites: List[Citation]
+    tags: List[str]
 
 
 def merge_ident(entry: RawEntry) -> str:
@@ -365,7 +365,7 @@ def merge_cites(entry) -> List[Citation]:
 
 
 def merge_tags(entry):
-    pass
+    return []
 
 
 def _load_user_data(fns, *, ulog):
@@ -417,7 +417,7 @@ def _fetch_data_for_fetched_id(entry, *, session, ulog):
     return entry
 
 
-def _link_entry(entry: Entry, by_doi: Dict[str, Entry]) -> Entry:
+def _resolve_doi_cites(entry: Entry, by_doi: Dict[str, Entry]) -> Entry:
     if entry.cites is None:
         return entry
 
@@ -469,33 +469,45 @@ def main(fns, c, ulog):
         cites=merge_cites(entry),
         tags=merge_tags(entry),
     ) for entry in entries]
+    indices = _create_indices(entries)
 
-    # 5. Create indices for data
-    by_doi = {}
-    by_ident = {}
-    by_arxivid = {}
-    by_fn = defaultdict(list)
+    # 6. Resolve doi citations to indent, where possible
+    entries = [_resolve_doi_cites(entry, indices.by_doi) for entry in entries]
+
+    # 4. Extract citations from description
     for entry in entries:
-        by_ident[entry.ident] = entry
-        by_doi[entry.doi] = entry
-        by_arxivid[entry.arxiv] = entry
-        by_fn[entry.fn] += [entry]
+        if entry.description is None:
+            continue
+        for para in entry.description.paragraphs:
+            for part in para.parts:
+                if isinstance(part, DescriptionCitation):
+                    citation = Citation(
+                        target_ident=TargetIdent(
+                            ident=part.ident,
+                            target_type='ident'),
+                        num=part.num,
+                        why='description'
+                    )
+                    if citation not in entry.cites:
+                        entry.cites.append(citation)
+    indices = _create_indices(entries)
 
-    # 6. Link
+    # 5. Link
     cite_network = nx.DiGraph()
-    entries = [_link_entry(entry, by_doi) for entry in entries]
     for entry in entries:
         if entry.cites is not None:
             for cite in entry.cites:
                 t = cite.target_ident
                 if t.target_type not in ['doi', 'arxivid', 'ident']:
                     raise ValueError(f"Unknown citation target type {t}")
-                if t.target_type == 'doi' and t.ident in by_doi:
-                    cite_network.add_edge(entry.ident, by_doi[t.ident].ident)
-                elif t.target_type == 'arxivid' and t.ident in by_arxivid:
-                    cite_network.add_edge(entry.ident, by_arxivid[t.ident].ident)
-                elif t.target_type == 'ident' and t.ident in by_ident:
-                    cite_network.add_edge(entry.ident, by_ident[t.ident].ident)
+                if t.target_type == 'doi' and t.ident in indices.by_doi:
+                    cite_network.add_edge(entry.ident, indices.by_doi[t.ident].ident)
+                elif t.target_type == 'arxivid' and t.ident in indices.by_arxivid:
+                    cite_network.add_edge(entry.ident, indices.by_arxivid[t.ident].ident)
+                elif t.target_type == 'ident' and t.ident in indices.by_ident:
+                    cite_network.add_edge(entry.ident, indices.by_ident[t.ident].ident)
+
+    indices = _create_indices_2(indices, cite_network)
 
     # 7. [WIP] output
     with open('quantum.json', 'w') as f:
@@ -510,7 +522,7 @@ def main(fns, c, ulog):
     except ImportError:
         pass
 
-    return entries
+    return entries, indices, cite_network
 
 
 def _quote(x):
@@ -696,19 +708,13 @@ def to_html_file(entries: List[Entry]):
     )
 
 
-def to_html_files(entries: List[Entry]):
-    from jinja2 import Environment, PackageLoader
-    env = Environment(loader=PackageLoader('gitbib'), keep_trailing_newline=True)
-    for k, func in HTML_FMT.items():
-        env.filters[k] = func
-    env.filters['safe_css'] = safe_css
-
-    template = env.get_template(f'template2.html')
-    _, _, _, by_fn = _create_indices(entries)
-    return {
-        fn: template.render(entries=by_fn[fn])
-        for fn in by_fn.keys()
-    }
+@dataclass
+class Indices:
+    by_doi: Dict[str, Entry]
+    by_ident: Dict[str, Entry]
+    by_arxivid: Dict[str, Entry]
+    by_fn: Dict[str, List[Entry]]
+    secondary_by_fn: Dict[str, List[Entry]]
 
 
 def _create_indices(entries):
@@ -734,7 +740,53 @@ def _create_indices(entries):
         add_with_check(by_arxivid, entry.arxiv, entry, 'by_arxivid')
         by_fn[entry.fn] += [entry]
 
-    return by_doi, by_ident, by_arxivid, by_fn
+    return Indices(
+        by_doi=by_doi,
+        by_ident=by_ident,
+        by_arxivid=by_arxivid,
+        by_fn=dict(by_fn),
+        secondary_by_fn={},
+    )
+
+
+def _create_indices_2(indices: Indices, cite_network: nx.DiGraph):
+    secondary_by_fn = {}
+    for fn in indices.by_fn:
+        secondary = []
+        for entry in indices.by_fn[fn]:
+            if entry.ident not in cite_network:
+                continue
+
+            for child_ident in cite_network.successors(entry.ident):
+                child = indices.by_ident[child_ident]
+                assert isinstance(child, Entry)
+                if child.fn == fn:
+                    # Already included in primary
+                    continue
+                secondary.append(child)
+        secondary_by_fn[fn] = secondary
+    return Indices(
+        by_doi=indices.by_doi,
+        by_ident=indices.by_ident,
+        by_arxivid=indices.by_arxivid,
+        by_fn=indices.by_fn,
+        secondary_by_fn=secondary_by_fn
+    )
+
+
+def to_html_files(indices: Indices):
+    from jinja2 import Environment, PackageLoader
+    env = Environment(loader=PackageLoader('gitbib'), keep_trailing_newline=True)
+    for k, func in HTML_FMT.items():
+        env.filters[k] = func
+    env.filters['safe_css'] = safe_css
+
+    template = env.get_template(f'template2.html')
+    return {
+        fn: template.render(entries1=indices.by_fn[fn],
+                            entries2=indices.secondary_by_fn[fn])
+        for fn in indices.by_fn.keys()
+    }
 
 
 def _bib_title(x: str):
@@ -769,17 +821,17 @@ BIB_FMT = {
 }
 
 
-def to_bib_files(entries: List[Entry]):
+def to_bib_files(indices: Indices):
     from jinja2 import Environment, PackageLoader
     env = Environment(loader=PackageLoader('gitbib'), keep_trailing_newline=True)
     for k, func in BIB_FMT.items():
         env.filters[k] = func
 
     template = env.get_template(f'template2.bib')
-    _, _, _, by_fn = _create_indices(entries)
     return {
-        fn: template.render(entries=by_fn[fn])
-        for fn in by_fn.keys()
+        fn: template.render(entries1=indices.by_fn[fn],
+                            entries2=indices.secondary_by_fn[fn])
+        for fn in indices.by_fn.keys()
     }
 
 
@@ -804,15 +856,14 @@ TEX_FMT = {
 }
 
 
-def to_tex_files(entries: List[Entry]):
+def to_tex_files(entries: List[Entry], indices: Indices):
     from jinja2 import Environment, PackageLoader
     env = Environment(loader=PackageLoader('gitbib'), keep_trailing_newline=True)
     for k, func in TEX_FMT.items():
         env.filters[k] = func
 
     template = env.get_template(f'template2.tex')
-    _, _, _, by_fn = _create_indices(entries)
     return {
-        fn: template.render(entries=by_fn[fn], fn=fn)
-        for fn in by_fn.keys()
+        fn: template.render(entries=indices.by_fn[fn], fn=fn)
+        for fn in indices.by_fn.keys()
     }

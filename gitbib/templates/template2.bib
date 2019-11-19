@@ -2,6 +2,7 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/. #}
 
+{% for entries in [entries1, entries2] -%}
 {% for entry in entries -%}
 
 @{{ entry.type | type }}{{ '{'+entry.ident }},
@@ -21,10 +22,18 @@
   {% if entry.address -%} {# note: I don't think this is ever given by crossref #}
   address   = "{{entry.address}}",
   {% endif -%}
+  {% if entry.volume -%}
   volume    = "{{entry.volume}}",
+  {% endif -%}
+  {% if entry.issue -%}
   number    = "{{entry.issue}}",
+  {% endif -%}
+  {% if entry.chapter -%}
   chapter   = "{{entry.chapter}}",
+  {% endif -%}
+  {% if entry.page -%}
   pages     = "{{ entry.page | page }}",
+  {% endif -%}
   {% if entry.note -%}
   note      = "{{entry.note}}",
   {% elif entry.arxiv -%}
@@ -37,9 +46,12 @@
   {% endif -%}
   {% if not entry.doi and entry.biorxiv -%}
   doi       = "{{ entry.biorxiv }}",
-  {% else -%}
+  {% elif entry.doi -%}
   doi       = "{{ entry.doi }}",
   {% endif %}
 }
+{% endfor %}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 
 {% endfor %}
