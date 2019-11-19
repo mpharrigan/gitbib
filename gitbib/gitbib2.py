@@ -801,18 +801,35 @@ def _bib_type(x: str):
     return CROSSREF_TO_BIB_TYPE[x]
 
 
+def _bib_year(x: DateTuple):
+    if x is None:
+        return
+    return x[0]
+
+
+def _bib_page(x: Tuple[int, int]):
+    if x is None:
+        return
+
+    x1, x2 = x
+    if x1 == x2:
+        return x1
+
+    return f'{x1}--{x2}'
+
+
 BIB_FMT = {
     'title': _bib_title,
     'arxiv': _quote,
     'doi': _id,
     'authors': _bib_authors,
     'type': _bib_type,
-    'published_online': _yaml_date,
-    'published_print': _yaml_date,
+    'published_online': _bib_year,
+    'published_print': _bib_year,
     'container_title': _yaml_container_title,
     'volume': _id,
     'issue': _id,
-    'page': _id,
+    'page': _bib_page,
     'url': _id,
     'pdf': _id,
     'cites': _yaml_cites,
