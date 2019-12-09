@@ -79,10 +79,12 @@
                 {% endif %}
 
                 {% if entry.cites %}
+                    <h6 class="m-b-0">References
                     <a data-toggle="collapse" href="#{{entry.ident | safe_css}}-cites"
                        aria-expanded="false" aria-controls="{{entry.ident | safe_css}}-cites">
-                    Show References
-                    </a>
+                    &raquo;
+                    </a></h6>
+                    <p></p>
                     <table class="table table-sm collapse" id="{{entry.ident | safe_css}}-cites">
                     <tr>
                     <th>Num</th><th>Entry</th><th>Why</th>
@@ -99,6 +101,13 @@
                         </tr>
                     {% endfor %}
                     </table>
+                {% endif %}
+
+                {% if entry.abstract %}
+                  <h6 class="m-b-0">Abstract</h6>
+                  <div class="abstract" style="font-size: smaller">
+                  {{ entry.abstract | description }}
+                  </div>
                 {% endif %}
 
                 {% if entry.tags %}

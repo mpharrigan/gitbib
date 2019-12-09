@@ -10,8 +10,10 @@ import yaml
 from sqlalchemy.orm.exc import NoResultFound
 from fuzzywuzzy import fuzz
 
-from gitbib.cache import Crossref, Arxiv
-from gitbib.description import parse_description, Description, Citation as DescriptionCitation
+from gitbib.cache import Crossref, Arxiv, Cache
+from gitbib.command_line import ConsoleLogger
+from gitbib.description import parse_description, Description, Citation as DescriptionCitation, \
+    parse_abstract
 from gitbib.gitbib import _fetch_crossref, _fetch_arxiv, NoCrossref, NoArxiv, \
     _container_title_logic, yaml_indent, latex_escape, bibtype, pretty_author_list, \
     bibtex_author_list, bibtex_capitalize, to_isodate, to_prettydate, respace, safe_css, \
@@ -114,6 +116,7 @@ class Entry:
     arxiv: Optional[str]
     pdf: Optional[str]
     description: Optional[Description]
+    abstract: Optional[Description]
     cites: List[Citation]
     tags: List[str]
 
@@ -340,6 +343,11 @@ def merge_description(entry) -> Optional[Description]:
         return parse_description(entry.user_data['description'])
 
 
+def merge_abstract(entry) -> Optional[Description]:
+    if entry.arxiv_data is not None and 'summary' in entry.arxiv_data:
+        return parse_abstract(entry.arxiv_data['summary'])
+
+
 def merge_cites(entry) -> List[Citation]:
     cites = []
 
@@ -434,7 +442,22 @@ def _resolve_doi_cites(entry: Entry, by_doi: Dict[str, Entry]) -> Entry:
     return replace(entry, cites=new_cites)
 
 
-def main(fns, c, ulog):
+def _configure(*, cache_url: str = 'sqlite:///cache.sqlite', logger_type: str = 'console'):
+    c = Cache(cache_url)
+    if logger_type == 'console':
+        ulog = ConsoleLogger(20)
+    else:
+        raise ValueError(f"Unknown logger_type {logger_type:!r}")
+    return c, ulog
+
+
+def main(fns: List[str],
+         *,
+         cache_url: str = 'sqlite:///cache.sqlite',
+         logger_type: str = 'console',
+         ):
+    c, ulog = _configure(cache_url=cache_url, logger_type=logger_type)
+
     # 1. User data
     entries = list(_load_user_data(fns, ulog=ulog))
 
@@ -466,6 +489,7 @@ def main(fns, c, ulog):
         arxiv=merge_arxiv(entry),
         pdf=merge_pdf(entry),
         description=merge_description(entry),
+        abstract=merge_abstract(entry),
         cites=merge_cites(entry),
         tags=merge_tags(entry),
     ) for entry in entries]

@@ -120,3 +120,7 @@ def parse_paragraph(text: str) -> Paragraph:
 def parse_description(desc: str) -> Description:
     raw_paras = re.split(r'\n\n', desc)
     return Description([parse_paragraph(para) for para in raw_paras])
+
+
+def parse_abstract(abs: str) -> Description:
+    return Description(paragraphs=[Paragraph(parts=[Text(abs)])])
