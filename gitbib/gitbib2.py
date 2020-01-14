@@ -120,6 +120,19 @@ class Entry:
     cites: List[Citation]
     tags: List[str]
 
+    @property
+    def first_published(self):
+        if self.published_online is None and self.published_print is None:
+            return (0, 0, 0)
+
+        if self.published_online is not None and self.published_print is None:
+            return self.published_online
+
+        if self.published_print is not None and self.published_online is None:
+            return self.published_print
+
+        return min(self.published_online, self.published_print)
+
 
 def merge_ident(entry: RawEntry) -> str:
     ident = entry.user_data['ident']
@@ -771,6 +784,20 @@ class Indices:
     by_fn: Dict[str, List[Entry]]
     secondary_by_fn: Dict[str, List[Entry]]
 
+    def get_sorted_by_fn(self, fn: str, sort_by: str):
+        if sort_by == 'file':
+            return self.by_fn[fn]
+        if sort_by == 'first_published':
+            return sorted(self.by_fn[fn], key=lambda x: x.first_published, reverse=True)
+        raise ValueError(f"Unknown `sort_by` {sort_by}")
+
+    def get_sorted_secondary_by_fn(self, fn: str, sort_by: str):
+        if sort_by == 'file':
+            return self.secondary_by_fn[fn]
+        if sort_by == 'first_published':
+            return sorted(self.secondary_by_fn[fn], key=lambda x: x.first_published, reverse=True)
+        raise ValueError(f"Unknown `sort_by` {sort_by}")
+
 
 def _create_indices(entries):
     by_doi = {}
@@ -829,7 +856,7 @@ def _create_indices_2(indices: Indices, cite_network: nx.DiGraph):
     )
 
 
-def to_html_files(indices: Indices):
+def to_html_files(indices: Indices, sort_by='file'):
     from jinja2 import Environment, PackageLoader
     env = Environment(loader=PackageLoader('gitbib'), keep_trailing_newline=True)
     for k, func in HTML_FMT.items():
@@ -838,8 +865,8 @@ def to_html_files(indices: Indices):
 
     template = env.get_template(f'template2.html')
     return {
-        fn: template.render(entries1=indices.by_fn[fn],
-                            entries2=indices.secondary_by_fn[fn])
+        fn: template.render(entries1=indices.get_sorted_by_fn(fn, sort_by=sort_by),
+                            entries2=indices.get_sorted_secondary_by_fn(fn, sort_by=sort_by))
         for fn in indices.by_fn.keys()
     }
 
