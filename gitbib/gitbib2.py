@@ -269,13 +269,44 @@ def merge_published_print(entry) -> Optional[DateTuple]:
 def merge_container_title(entry, *, ulog) -> Optional[ContainerTitle]:
     if entry.crossref_data is not None and 'container-title' in entry.crossref_data:
         crossref_ctitles = entry.crossref_data['container-title']
-        if len(crossref_ctitles) < 1:
-            return None
-        ctitles_dict = _container_title_logic(crossref_ctitles, ulog=ulog)
-        return ContainerTitle(
-            full_name=ctitles_dict['full'],
-            short_name=ctitles_dict['short'],
-        )
+        crossref_shortctitles = entry.crossref_data['short-container-title']
+
+        if len(crossref_ctitles) == 0 and len(crossref_shortctitles) == 0:
+            # No titles whatsoever
+            return
+
+        if len(crossref_ctitles) == 1 and len(crossref_shortctitles) == 0:
+            # Cross-ref says there's no short title.
+            return ContainerTitle(
+                full_name=crossref_ctitles[0],
+                short_name=None,
+            )
+
+        if len(crossref_ctitles) > 1 and len(crossref_shortctitles) == 0:
+            ulog.warn(f"Multiple container titles: {entry.user_data['ident']}: {crossref_ctitles}")
+            return ContainerTitle(
+                full_name=crossref_ctitles[0],
+                short_name=None
+            )
+
+        if len(crossref_ctitles) == 1 and len(crossref_shortctitles) == 1:
+            # Best case: crossref tells us what we want
+            return ContainerTitle(
+                full_name=crossref_ctitles[0],
+                short_name=crossref_shortctitles[0],
+            )
+
+        if len(crossref_ctitles) == 1 and len(crossref_shortctitles) > 1:
+            # Case-by-case basis.
+            ulog.warn(f"Multiple short titles {crossref_shortctitles} for {crossref_ctitles[0]}")
+
+            # It seems we can just take the first...
+            return ContainerTitle(
+                full_name=crossref_ctitles[0],
+                short_name=crossref_shortctitles[0],
+            )
+
+        ulog.error(f"Unhandled container-title logic {crossref_ctitles} {crossref_shortctitles}")
 
 
 def merge_volume(entry) -> Optional[int]:
