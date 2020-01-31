@@ -1,5 +1,6 @@
 import datetime
 import os
+import re
 from collections import defaultdict
 from dataclasses import dataclass, asdict, astuple, replace
 from textwrap import TextWrapper
@@ -166,6 +167,7 @@ def merge_title(entry: RawEntry, *, ulog) -> str:
 
     if entry.arxiv_data is not None:
         arxiv_title = entry.arxiv_data['title']
+        arxiv_title = re.sub('\n  ', ' ', arxiv_title, flags=re.MULTILINE)
         if title is not None:
             if fuzz.ratio(arxiv_title, title) < 90:
                 ulog.warn(f"Titles for {entry.ident} differ: {title} vs {arxiv_title}")
@@ -872,7 +874,7 @@ def to_html_files(indices: Indices, sort_by='file'):
 
 
 def _bib_title(x: str):
-    return latex_escape(bibtex_capitalize(x))
+    return bibtex_capitalize(latex_escape(x))
 
 
 def _bib_authors(xs: List[Author]):
