@@ -32,10 +32,10 @@
   {% if entry.page -%}
   pages     = "{{ entry.page | page }}",
   {% endif -%}
-  {% if entry.note -%}
-  note      = "{{entry.note}}",
-  {% elif entry.arxiv -%}
-  note      = "arXiv:{{ entry.arxiv }}",
+  {% if entry.arxiv -%}
+  archivePrefix = "arXiv",
+  eprint        = "{{ entry.arxiv }}",
+  primaryClass  = "{{ entry.arxiv_category }}",
   {% elif entry.biorxiv -%}
   note      = "bioRxiv:{{ entry.biorxiv }}",
   {% endif -%}

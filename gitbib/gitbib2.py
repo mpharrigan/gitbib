@@ -115,6 +115,7 @@ class Entry:
     url: Optional[str]
     doi: Optional[str]
     arxiv: Optional[str]
+    arxiv_category: Optional[str]
     pdf: Optional[str]
     description: Optional[Description]
     abstract: Optional[Description]
@@ -379,6 +380,11 @@ def merge_arxiv(entry) -> Optional[str]:
         return entry.user_data['arxiv']
 
 
+def merge_arxiv_category(entry) -> Optional[str]:
+    if entry.arxiv_data is not None:
+        return entry.arxiv_data['primary_category']
+
+
 def merge_pdf(entry) -> Optional[str]:
     if 'pdf' in entry.user_data:
         return entry.user_data['pdf']
@@ -533,6 +539,7 @@ def main(fns: List[str],
         url=merge_url(entry),
         doi=merge_doi(entry),
         arxiv=merge_arxiv(entry),
+        arxiv_category=merge_arxiv_category(entry),
         pdf=merge_pdf(entry),
         description=merge_description(entry),
         abstract=merge_abstract(entry),

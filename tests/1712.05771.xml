@@ -1,0 +1,126 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+  <link href="http://arxiv.org/api/query?search_query%3D%26id_list%3D1712.05771%26start%3D0%26max_results%3D10" rel="self" type="application/atom+xml"/>
+  <title type="html">ArXiv Query: search_query=&amp;id_list=1712.05771&amp;start=0&amp;max_results=10</title>
+  <id>http://arxiv.org/api/DkbAPk2TPzHcJo1FmdwQh6fZbek</id>
+  <updated>2020-01-31T00:00:00-05:00</updated>
+  <opensearch:totalResults xmlns:opensearch="http://a9.com/-/spec/opensearch/1.1/">1</opensearch:totalResults>
+  <opensearch:startIndex xmlns:opensearch="http://a9.com/-/spec/opensearch/1.1/">0</opensearch:startIndex>
+  <opensearch:itemsPerPage xmlns:opensearch="http://a9.com/-/spec/opensearch/1.1/">10</opensearch:itemsPerPage>
+  <entry>
+    <id>http://arxiv.org/abs/1712.05771v1</id>
+    <updated>2017-12-15T18:00:07Z</updated>
+    <published>2017-12-15T18:00:07Z</published>
+    <title>Unsupervised Machine Learning on a Hybrid Quantum Computer</title>
+    <summary>  Machine learning techniques have led to broad adoption of a statistical model
+of computing. The statistical distributions natively available on quantum
+processors are a superset of those available classically. Harnessing this
+attribute has the potential to accelerate or otherwise improve machine learning
+relative to purely classical performance. A key challenge toward that goal is
+learning to hybridize classical computing resources and traditional learning
+techniques with the emerging capabilities of general purpose quantum
+processors. Here, we demonstrate such hybridization by training a 19-qubit gate
+model processor to solve a clustering problem, a foundational challenge in
+unsupervised learning. We use the quantum approximate optimization algorithm in
+conjunction with a gradient-free Bayesian optimization to train the quantum
+machine. This quantum/classical hybrid algorithm shows robustness to realistic
+noise, and we find evidence that classical optimization can be used to train
+around both coherent and incoherent imperfections.
+</summary>
+    <author>
+      <name>J. S. Otterbach</name>
+    </author>
+    <author>
+      <name>R. Manenti</name>
+    </author>
+    <author>
+      <name>N. Alidoust</name>
+    </author>
+    <author>
+      <name>A. Bestwick</name>
+    </author>
+    <author>
+      <name>M. Block</name>
+    </author>
+    <author>
+      <name>B. Bloom</name>
+    </author>
+    <author>
+      <name>S. Caldwell</name>
+    </author>
+    <author>
+      <name>N. Didier</name>
+    </author>
+    <author>
+      <name>E. Schuyler Fried</name>
+    </author>
+    <author>
+      <name>S. Hong</name>
+    </author>
+    <author>
+      <name>P. Karalekas</name>
+    </author>
+    <author>
+      <name>C. B. Osborn</name>
+    </author>
+    <author>
+      <name>A. Papageorge</name>
+    </author>
+    <author>
+      <name>E. C. Peterson</name>
+    </author>
+    <author>
+      <name>G. Prawiroatmodjo</name>
+    </author>
+    <author>
+      <name>N. Rubin</name>
+    </author>
+    <author>
+      <name>Colm A. Ryan</name>
+    </author>
+    <author>
+      <name>D. Scarabelli</name>
+    </author>
+    <author>
+      <name>M. Scheer</name>
+    </author>
+    <author>
+      <name>E. A. Sete</name>
+    </author>
+    <author>
+      <name>P. Sivarajah</name>
+    </author>
+    <author>
+      <name>Robert S. Smith</name>
+    </author>
+    <author>
+      <name>A. Staley</name>
+    </author>
+    <author>
+      <name>N. Tezak</name>
+    </author>
+    <author>
+      <name>W. J. Zeng</name>
+    </author>
+    <author>
+      <name>A. Hudson</name>
+    </author>
+    <author>
+      <name>Blake R. Johnson</name>
+    </author>
+    <author>
+      <name>M. Reagor</name>
+    </author>
+    <author>
+      <name>M. P. da Silva</name>
+    </author>
+    <author>
+      <name>C. Rigetti</name>
+    </author>
+    <arxiv:comment xmlns:arxiv="http://arxiv.org/schemas/atom">7 pages + appendix, many figures</arxiv:comment>
+    <link href="http://arxiv.org/abs/1712.05771v1" rel="alternate" type="text/html"/>
+    <link title="pdf" href="http://arxiv.org/pdf/1712.05771v1" rel="related" type="application/pdf"/>
+    <arxiv:primary_category xmlns:arxiv="http://arxiv.org/schemas/atom" term="quant-ph" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="quant-ph" scheme="http://arxiv.org/schemas/atom"/>
+  </entry>
+</feed>

@@ -10,6 +10,7 @@ import textwrap
 import time
 import os
 import glob
+from typing import Dict, Any
 from xml.etree import ElementTree
 
 import requests
@@ -65,23 +66,29 @@ class NoArxiv(RuntimeError):
     pass
 
 
-def _fetch_arxiv(arxivid):
+def _fetch_raw_arxiv(arxivid):
+    headers = {'User-Agent': 'Gitbib/1 (https://github.com/mpharrigan/gitbib) '
+                             'mailto:matthew.harrigan@outlook.com'}
     url = 'http://export.arxiv.org/api/query?id_list={}'.format(arxivid)
-    r = requests.get(url)
+    r = requests.get(url, headers=headers)
     time.sleep(1)
     log.debug("Request for {} returned {}".format(url, r.status_code))
     if r.status_code != 200:
         raise NoArxiv()
+    return ElementTree.fromstring(r.text)
 
-    # TODO: catch xml errors?
+
+def _fetch_arxiv(arxivid, fetcher=_fetch_raw_arxiv) -> Dict[str, Any]:
     ns = {'atom': "http://www.w3.org/2005/Atom",
           'arxiv': "http://arxiv.org/schemas/atom"}
-    tree = ElementTree.fromstring(r.text).find('atom:entry', ns)
+    tree = fetcher(arxivid)
+    tree = tree.find('atom:entry', ns)
     data = {
         'title': tree.find('atom:title', ns).text,
         'published': tree.find('atom:published', ns).text,
         'updated': tree.find('atom:updated', ns).text,
         'summary': tree.find('atom:summary', ns).text,
+        'primary_category': tree.find('arxiv:primary_category', ns).attrib['term'],
         'authors': [],
     }
     for auth in tree.iterfind('atom:author', ns):
@@ -314,7 +321,7 @@ def _internal_rep_arxiv(my_meta, their_meta, *, ulog):
     new_their_meta = {k: v for k, v in their_meta.items() if k in ['title']}
     new_their_meta['published-online'] = (
         datetime.datetime.strptime(their_meta['published'], '%Y-%m-%dT%H:%M:%SZ')
-        .date())
+            .date())
     new_their_meta['abstract'] = their_meta['summary']
     authors = []
     for a in their_meta['authors']:
