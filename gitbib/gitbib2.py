@@ -11,7 +11,7 @@ import yaml
 from sqlalchemy.orm.exc import NoResultFound
 from fuzzywuzzy import fuzz
 
-from gitbib.cache import Crossref, Arxiv, Cache
+from gitbib.cache import Crossref, Arxiv, Cache, Session
 from gitbib.command_line import ConsoleLogger
 from gitbib.description import parse_description, Description, Citation as DescriptionCitation, \
     parse_abstract
@@ -21,43 +21,49 @@ from gitbib.gitbib import _fetch_crossref, _fetch_arxiv, NoCrossref, NoArxiv, \
     list_of_pdbs, markdownify, CROSSREF_TO_BIB_TYPE
 
 
-def get_and_cache_crossref(doi, *, session, ulog, ident):
+def get_and_cache_crossref(doi, *, session, ulog, ident) -> Tuple[Optional[Dict], int]:
     try:
         crossref = session.query(Crossref).filter(Crossref.doi == doi).one()
         ulog.debug("{}'s entry was cached via doi/crossref".format(ident))
-        return crossref.data
+        n_fetched = 0
+        return crossref.data, n_fetched
     except NoResultFound:
         try:
             ulog.info("Fetching data for {} via doi/crossref".format(ident))
             crossref_data = _fetch_crossref(doi=doi)
             crossref = Crossref(doi=doi, data=crossref_data)
             session.add(crossref)
-            return crossref_data
+            n_fetched = 1
+            return crossref_data, n_fetched
         except NoCrossref:
             ulog.error("A doi was given for {}, but the crossref request failed!".format(ident))
-            return None
+            n_fetched = 0
+            return None, n_fetched
 
 
-def get_and_cache_arxiv(arxivid, *, session, ulog, ident):
+def get_and_cache_arxiv(arxivid, *, session, ulog, ident) -> Tuple[Optional[Dict], int]:
     try:
         arxiv = session.query(Arxiv).filter(Arxiv.arxivid == arxivid).one()
         ulog.debug("{}'s entry was cached via arxiv".format(ident))
+        n_fetched = 0
 
         if False:  # TODO!
             session.delete(arxiv)
             raise NoResultFound("Invalidating!")
 
-        return arxiv.data
+        return arxiv.data, n_fetched
     except NoResultFound:
         try:
             ulog.info("Fetching data for {} via arxiv".format(ident))
             arxiv_data = _fetch_arxiv(arxivid)
             session.add(Arxiv(arxivid=arxivid, data=arxiv_data))
-            return arxiv_data
+            n_fetched = 1
+            return arxiv_data, n_fetched
         except NoArxiv:
             ulog.error("An arxiv id was given for {}, "
                        "but we couldn't get the data!".format(ident))
-            return None
+            n_fetched = 0
+            return None, n_fetched
 
 
 @dataclass
@@ -442,39 +448,66 @@ def _load_user_data(fns, *, ulog):
                 yield RawEntry(user_data=user_data)
 
 
-def _fetch_data_for_user_spec_id(entry, *, session, ulog):
+def _fetch_data_for_user_spec_id(entry: RawEntry, *, session, ulog) -> Tuple[RawEntry, int]:
     ident = entry.user_data['ident']
+    n_fetched = 0
     if 'doi' in entry.user_data:
-        entry.crossref_data = get_and_cache_crossref(doi=entry.user_data['doi'],
-                                                     ulog=ulog, session=session,
-                                                     ident=ident)
+        entry.crossref_data, nf1 = get_and_cache_crossref(doi=entry.user_data['doi'],
+                                                          ulog=ulog, session=session,
+                                                          ident=ident)
+        n_fetched += nf1
+
     if 'arxiv' in entry.user_data:
-        entry.arxiv_data = get_and_cache_arxiv(arxivid=entry.user_data['arxiv'],
-                                               ulog=ulog, session=session, ident=ident)
+        entry.arxiv_data, nf2 = get_and_cache_arxiv(arxivid=entry.user_data['arxiv'],
+                                                    ulog=ulog, session=session, ident=ident)
+        n_fetched += nf2
 
-    return entry
+    return entry, n_fetched
 
 
-def _fetch_data_for_fetched_id(entry, *, session, ulog):
+def _fetch_data_for_fetched_id(entry: RawEntry, *, session, ulog) -> Tuple[RawEntry, int]:
     ident = entry.user_data['ident']
+    n_fetched = 0
 
     # 3.1 arxiv -> crossref
     if entry.arxiv_data is not None:
         if 'doi' in entry.arxiv_data:
             doi = entry.arxiv_data['doi']
-            if entry.crossref_data is not None and doi.lower() != entry.crossref_data[
-                'DOI'].lower():
+            if (entry.crossref_data is not None
+                and doi.lower() != entry.crossref_data['DOI'].lower()):
                 raise ValueError(f"Inconsistent DOIs: {doi} and {entry.crossref_data['DOI']}")
 
             if entry.crossref_data is None:
-                entry.crossref_data = get_and_cache_crossref(doi=doi,
-                                                             ulog=ulog, session=session,
-                                                             ident=ident)
+                entry.crossref_data, nf1 = get_and_cache_crossref(doi=doi,
+                                                                  ulog=ulog, session=session,
+                                                                  ident=ident)
+                n_fetched += nf1
 
     # 3.2 crossref -> arxiv (TODO)
     pass
 
-    return entry
+    return entry, n_fetched
+
+
+def _fetch_and_cache(entries, *, func, ulog):
+    session = Session()
+    try:
+        new_entries = []
+        n_fetched = 0
+        for entry in entries:
+            new_entry, nf = func(entry, session=session, ulog=ulog)
+            new_entries.append(new_entry)
+            n_fetched += nf
+            if n_fetched > 0 and n_fetched % 10 == 0:
+                ulog.info("Saving cached requests.")
+                session.commit()
+        session.commit()
+    except:
+        session.rollback()
+        raise
+    finally:
+        session.close()
+    return new_entries
 
 
 def _resolve_doi_cites(entry: Entry, by_doi: Dict[str, Entry]) -> Entry:
@@ -514,14 +547,10 @@ def main(fns: List[str],
     entries = list(_load_user_data(fns, ulog=ulog))
 
     # 2. Fetch data given by user-specified ids.
-    with c.scoped_session() as session:
-        entries = [_fetch_data_for_user_spec_id(entry, session=session, ulog=ulog) for entry in
-                   entries]
+    entries = _fetch_and_cache(entries, func=_fetch_data_for_user_spec_id, ulog=ulog)
 
     # 3. Fetch data given by fetched ids
-    with c.scoped_session() as session:
-        entries = [_fetch_data_for_fetched_id(entry, session=session, ulog=ulog) for entry in
-                   entries]
+    entries = _fetch_and_cache(entries, func=_fetch_data_for_fetched_id, ulog=ulog)
 
     # 4. Merge data and convert to internal representation
     entries = [Entry(
