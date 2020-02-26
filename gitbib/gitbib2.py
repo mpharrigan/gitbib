@@ -575,9 +575,9 @@ def main(fns: List[str],
         cites=merge_cites(entry),
         tags=merge_tags(entry),
     ) for entry in entries]
-    indices = _create_indices(entries)
+    indices = _create_indices(entries, ulog=ulog)
 
-    # 6. Resolve doi citations to indent, where possible
+    # 6. Resolve doi citations to ident, where possible
     entries = [_resolve_doi_cites(entry, indices.by_doi) for entry in entries]
 
     # 4. Extract citations from description
@@ -596,7 +596,7 @@ def main(fns: List[str],
                     )
                     if citation not in entry.cites:
                         entry.cites.append(citation)
-    indices = _create_indices(entries)
+    indices = _create_indices(entries, ulog=ulog)
 
     # 5. Link
     cite_network = nx.DiGraph()
@@ -837,7 +837,7 @@ class Indices:
         raise ValueError(f"Unknown `sort_by` {sort_by}")
 
 
-def _create_indices(entries):
+def _create_indices(entries, *, ulog):
     by_doi = {}
     by_ident = {}
     by_arxivid = {}
@@ -848,9 +848,9 @@ def _create_indices(entries):
             return
         if k in d:
             other_e = d[k]
-            print(f"{k} already in {dname}: "
-                  f"Trying to add {e.ident} in {e.fn}. "
-                  f"Found {other_e.ident} in {other_e.fn}")
+            ulog.error(f"{k} already in {dname}: "
+                       f"Trying to add {e.ident} in {e.fn}. "
+                       f"Found {other_e.ident} in {other_e.fn}")
             return
         d[k] = e
 
