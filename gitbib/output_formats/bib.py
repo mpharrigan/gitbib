@@ -1,11 +1,7 @@
-from collections import defaultdict
-from typing import List, Tuple, Iterable, Callable, Any
+from typing import List, Tuple, Callable, Any
 
-from gitbib.gitbib import _fetch_crossref, _fetch_arxiv, NoCrossref, NoArxiv, \
-    _container_title_logic, yaml_indent, latex_escape, bibtype, pretty_author_list, \
-    bibtex_author_list, bibtex_capitalize, to_isodate, to_prettydate, respace, safe_css, \
-    list_of_pdbs, markdownify, CROSSREF_TO_BIB_TYPE
-from gitbib.gitbib2 import Author, DateTuple, ContainerTitle, Citation, Indices, Entry
+from gitbib.gitbib import latex_escape, bibtex_capitalize, CROSSREF_TO_BIB_TYPE
+from gitbib.gitbib2 import Author, DateTuple, ContainerTitle, Indices, Entry
 
 
 def _quote(x) -> str:
@@ -68,15 +64,8 @@ def to_bib(entry: Entry):
         ('doi', 'doi', _quote),  # TODO: bioarxiv?
     ]
 
-    # archivePrefix = "arXiv",
-    # eprint = "{{ entry.arxiv }}",
-    # primaryClass = "{{ entry.arxiv_category }}",
-
-    # archivePrefix = "arXiv",
-    # eprint = "1401.7320",
-    # primaryClass = "quant-ph",
-
     for bib_field_name, entry_field_name, fmt_func in fields:
+        # 0. Special case
         if entry_field_name == 'arxiv':
             if entry.arxiv is None:
                 continue
@@ -86,13 +75,13 @@ def to_bib(entry: Entry):
             s += '  primaryClass  = ' + _quote(entry.arxiv_category) + ',\n'
             continue
 
+        # 1. Normal 1:1 field correspondence.
         value = entry.__getattribute__(entry_field_name)
         if value is None:
             continue
         s += f'  {bib_field_name:9s} = ' + fmt_func(value) + ',\n'
 
-    # TODO: don't reproduce bad formatting, remove preceding \n
-    s += '  \n}'
+    s += '}'
     return s
 
 
@@ -101,15 +90,13 @@ def to_bib_files(indices: Indices):
     for fn, entries in indices.by_fn.items():
         s = ''
         for entry in entries:
-            # TODO: don't reproduce bad formatting, add extra \n
-            s += to_bib(entry) + '\n'
+            s += to_bib(entry) + '\n\n'
         byfn[fn] = s
 
     for fn, entries in indices.secondary_by_fn.items():
-        s = '\n' + '%' * 78 + '\n\n\n'
+        s = '\n' + '%' * 78 + '\n\n'
         for entry in entries:
-            # TODO: don't reproduce bad formatting, add extra \n
-            s += to_bib(entry) + '\n'
+            s += to_bib(entry) + '\n\n'
         byfn[fn] += s
 
     return byfn
