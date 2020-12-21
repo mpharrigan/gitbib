@@ -129,9 +129,9 @@ class Entry:
     tags: List[str]
 
     @property
-    def first_published(self):
+    def first_published(self) -> Optional[DateTuple]:
         if self.published_online is None and self.published_print is None:
-            return (0, 0, 0)
+            return None
 
         if self.published_online is not None and self.published_print is None:
             return self.published_online
@@ -140,6 +140,13 @@ class Entry:
             return self.published_print
 
         return min(self.published_online, self.published_print)
+
+    @property
+    def first_published_key(self) -> DateTuple:
+        fp = self.first_published
+        if fp is None:
+            return (0, 0, 0)
+        return fp
 
 
 def merge_ident(entry: RawEntry) -> str:
@@ -826,14 +833,15 @@ class Indices:
         if sort_by == 'file':
             return self.by_fn[fn]
         if sort_by == 'first_published':
-            return sorted(self.by_fn[fn], key=lambda x: x.first_published, reverse=True)
+            return sorted(self.by_fn[fn], key=lambda x: x.first_published_key, reverse=True)
         raise ValueError(f"Unknown `sort_by` {sort_by}")
 
     def get_sorted_secondary_by_fn(self, fn: str, sort_by: str):
         if sort_by == 'file':
             return self.secondary_by_fn[fn]
         if sort_by == 'first_published':
-            return sorted(self.secondary_by_fn[fn], key=lambda x: x.first_published, reverse=True)
+            return sorted(self.secondary_by_fn[fn], key=lambda x: x.first_published_key,
+                          reverse=True)
         raise ValueError(f"Unknown `sort_by` {sort_by}")
 
 
@@ -921,57 +929,6 @@ def _bib_type(x: str):
     return CROSSREF_TO_BIB_TYPE[x]
 
 
-def _bib_year(x: DateTuple):
-    if x is None:
-        return
-    return x[0]
-
-
-def _bib_page(x: Tuple[int, int]):
-    if x is None:
-        return
-
-    x1, x2 = x
-    if x1 == x2:
-        return x1
-
-    return f'{x1}--{x2}'
-
-
-BIB_FMT = {
-    'title': _bib_title,
-    'arxiv': _quote,
-    'doi': _id,
-    'authors': _bib_authors,
-    'type': _bib_type,
-    'published_online': _bib_year,
-    'published_print': _bib_year,
-    'container_title': _yaml_container_title,
-    'volume': _id,
-    'issue': _id,
-    'page': _bib_page,
-    'url': _id,
-    'pdf': _id,
-    'cites': _yaml_cites,
-    'tags': _id,
-    'description': lambda x: x.html(),
-}
-
-
-def to_bib_files(indices: Indices):
-    from jinja2 import Environment, PackageLoader
-    env = Environment(loader=PackageLoader('gitbib'), keep_trailing_newline=True)
-    for k, func in BIB_FMT.items():
-        env.filters[k] = func
-
-    template = env.get_template(f'template2.bib')
-    return {
-        fn: template.render(entries1=indices.by_fn[fn],
-                            entries2=indices.secondary_by_fn[fn])
-        for fn in indices.by_fn.keys()
-    }
-
-
 TEX_FMT = {
     'ident': latex_escape,
     'title': _bib_title,
@@ -1004,3 +961,6 @@ def to_tex_files(entries: List[Entry], indices: Indices):
         fn: template.render(entries=indices.by_fn[fn], fn=fn)
         for fn in indices.by_fn.keys()
     }
+
+
+from gitbib.output_formats.bib import to_bib_files
