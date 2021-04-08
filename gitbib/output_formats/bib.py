@@ -1,4 +1,4 @@
-from typing import List, Tuple, Callable, Any
+from typing import List, Tuple, Callable, Any, Sequence
 
 from gitbib.gitbib import latex_escape, bibtex_capitalize, CROSSREF_TO_BIB_TYPE
 from gitbib.gitbib2 import Author, DateTuple, ContainerTitle, Indices, Entry
@@ -82,6 +82,12 @@ def to_bib(entry: Entry):
         s += f'  {bib_field_name:9s} = ' + fmt_func(value) + ',\n'
 
     s += '}'
+    return s
+
+def to_bibs(entries: Sequence[Entry]):
+    s = ''
+    for entry in entries:
+        s += to_bib(entry) + '\n\n'
     return s
 
 

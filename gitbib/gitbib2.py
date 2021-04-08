@@ -867,7 +867,7 @@ def to_tex_files(entries: List[Entry], indices: Indices):
     }
 
 
-from gitbib.output_formats.bib import to_bib_files
+from gitbib.output_formats.bib import to_bib_files, to_bibs
 from gitbib.output_formats.yaml import to_yaml_files
 
-assert (to_bib_files, to_yaml_files), 'use imports'
+assert (to_bib_files, to_bibs, to_yaml_files), 'use imports'
